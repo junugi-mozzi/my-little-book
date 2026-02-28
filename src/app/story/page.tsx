@@ -8,12 +8,14 @@ import Image from 'next/image'
 import { useStoryStore } from '@/store/storyStore'
 import GridLoader from '../../GridLoader'
 import { useIsClient } from '@/hooks/useIsClient'
+import { useAuthGuard } from '@/hooks/useAuthGuard'
 
 const HERO_IMAGE_FILENAME = '마리북-음유시인bard-hero.png.png';
 
 export default function StoryPage() {
   const router = useRouter()
   const isClient = useIsClient()
+  const { loading: authLoading } = useAuthGuard()
 
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -99,7 +101,7 @@ export default function StoryPage() {
     router.push(storyType === 'short' ? '/short-story' : '/long-story')
   }
 
-  if (!isClient || loading) {
+  if (!isClient || loading || authLoading) {
     return (
       <main className="min-h-screen bg-[#1a1412] flex flex-col items-center justify-center p-4">
         <GridLoader color="#d4b483" />

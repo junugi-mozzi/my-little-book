@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useStoryStore, StoryField } from '@/store/storyStore'
 import { useState } from 'react'
 import GridLoader from '../../GridLoader'
+import { useAuthGuard } from '@/hooks/useAuthGuard'
 
 const FIELD_LABELS: Record<StoryField, string> = {
   genre: '장르',
@@ -25,15 +26,19 @@ export default function ShortStoryPage() {
   const router = useRouter()
   const store = useStoryStore()
   const { setField } = store
+  const { session } = useAuthGuard()
   const [result, setResult] = useState<string>('')
   const [loading, setLoading] = useState(false)
 
   const handleGenerate = async () => {
     setLoading(true)
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+
       const res = await fetch('/api/short-story', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           genre: store.genre,
           era: store.era,

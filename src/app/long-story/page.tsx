@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useStoryStore, StoryField } from '@/store/storyStore'
 import { useState } from 'react'
 import GridLoader from '../../GridLoader'
+import { useAuthGuard } from '@/hooks/useAuthGuard'
 
 const FIELD_LABELS: Record<StoryField, string> = {
   genre: '장르',
@@ -24,14 +25,18 @@ export default function LongStoryPage() {
   const router = useRouter()
   const store = useStoryStore()
   const { outline, setOutline, setField } = store
+  const { session } = useAuthGuard()
   const [loading, setLoading] = useState(false)
 
   const handleGenerateOutline = async () => {
     setLoading(true)
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+
       const res = await fetch('/api/long-story/outline', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           genre: store.genre,
           era: store.era,
@@ -93,7 +98,7 @@ export default function LongStoryPage() {
               <div className="w-16 h-px bg-[#8d6e63]" />
             </div>
             <h1 className="text-3xl font-bold text-[#5d4037] tracking-wide">장편 소설로 엮기</h1>
-            <p className="mt-2 text-sm text-[#8d6e63] tracking-wider">마도서의 목차를 먼저 소환합니다</p>
+            <p className="mt-2 text-sm text-[#8d6e63] tracking-wider">스토리의 목차를 먼저 생성합니다</p>
           </div>
 
           {/* 입력 필드 */}
@@ -129,7 +134,7 @@ export default function LongStoryPage() {
               whileTap={{ scale: 0.98 }}
               className="w-full py-4 bg-[#d4b483] hover:bg-[#c6a165] text-[#3e2723] font-bold text-lg tracking-widest rounded border border-[#8d6e63] shadow-[0_4px_15px_rgba(0,0,0,0.35)] transition-colors disabled:opacity-50"
             >
-              ✨ 아웃라인 생성하기
+              ✨ 이야기 생성하기
             </motion.button>
           </div>
         </motion.div>

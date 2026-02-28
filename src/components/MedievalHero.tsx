@@ -1,7 +1,9 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useAuth } from '@/context/AuthContext'
+import { useEffect, useRef } from 'react'
+import Link from 'next/link'
+import { useBGMStore } from '@/store/bgmStore'
 
 interface MedievalHeroProps {
   onEnter: () => void
@@ -32,7 +34,60 @@ const ROTATE_OFFSETS = [-2.5, 1.8, -1.2, 2.5, -3, 1.5, -2, 2]
 
 export default function MedievalHero({ onEnter }: MedievalHeroProps) {
   const duplicated = [...BOOK_IMAGES, ...BOOK_IMAGES]
-  const { user, loading, signInWithGoogle, signOut } = useAuth()
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const fadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const { muted } = useBGMStore()
+
+  useEffect(() => {
+    const audio = new Audio('/bgm/mainpagebgm-hero.mp3')
+    audio.loop = true
+    audio.volume = 0
+    audioRef.current = audio
+
+    const startFadeIn = () => {
+      let vol = 0
+      fadeTimerRef.current = setInterval(() => {
+        vol = Math.min(vol + 0.01, 0.35)
+        audio.volume = vol
+        if (vol >= 0.35) {
+          clearInterval(fadeTimerRef.current!)
+          fadeTimerRef.current = null
+        }
+      }, 60)
+    }
+
+    audio.play().then(startFadeIn).catch(() => {
+      // 자동재생 차단 → 첫 인터랙션 시 재생
+      const onInteraction = () => {
+        audio.play().then(startFadeIn).catch(() => {})
+        document.removeEventListener('click', onInteraction)
+        document.removeEventListener('keydown', onInteraction)
+        document.removeEventListener('touchstart', onInteraction)
+      }
+      document.addEventListener('click', onInteraction)
+      document.addEventListener('keydown', onInteraction)
+      document.addEventListener('touchstart', onInteraction)
+    })
+
+    return () => {
+      if (fadeTimerRef.current) clearInterval(fadeTimerRef.current)
+      let v = audio.volume
+      const fadeOut = setInterval(() => {
+        v = Math.max(v - 0.03, 0)
+        audio.volume = v
+        if (v <= 0) {
+          clearInterval(fadeOut)
+          audio.pause()
+          audio.src = ''
+        }
+      }, 40)
+    }
+  }, [])
+
+  // 스토어 muted 상태를 오디오에 동기화
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.muted = muted
+  }, [muted])
 
   return (
     <motion.section
@@ -52,53 +107,6 @@ export default function MedievalHero({ onEnter }: MedievalHeroProps) {
       />
       {/* 상단 가장자리 어두운 비네트 */}
       <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#0e0a08] to-transparent pointer-events-none" />
-
-      {/* ── 상단 우측 로그인/로그아웃 ── */}
-      {!loading && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.4 }}
-          className="absolute top-5 right-6 z-20 flex items-center gap-3"
-        >
-          {user ? (
-            <>
-              {/* 유저 아바타 + 이메일 */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#d4b483]/30 bg-[#3e2723]/60 backdrop-blur-sm">
-                <div className="w-6 h-6 rounded-full bg-[#8d6e63] border border-[#d4b483]/50 flex items-center justify-center text-[#f4e4bc] text-xs font-bold shrink-0">
-                  {user.email?.[0].toUpperCase() ?? '?'}
-                </div>
-                <span className="text-[#d4b483] text-xs tracking-wide max-w-[120px] truncate">
-                  {user.email}
-                </span>
-              </div>
-              {/* 로그아웃 버튼 */}
-              <motion.button
-                onClick={signOut}
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.96 }}
-                className="px-4 py-1.5 rounded-full border border-[#8d6e63]/60 bg-[#3e2723]/60 text-[#a1887f] hover:text-[#f4e4bc] hover:border-[#d4b483]/60 text-xs tracking-widest backdrop-blur-sm transition-colors"
-              >
-                로그아웃
-              </motion.button>
-            </>
-          ) : (
-            /* 로그인 버튼 */
-            <motion.button
-              onClick={signInWithGoogle}
-              whileHover={{ scale: 1.04, boxShadow: '0 0 16px rgba(212,180,131,0.15)' }}
-              whileTap={{ scale: 0.96 }}
-              className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#d4b483]/40 bg-[#3e2723]/70 text-[#d4b483] hover:bg-[#3e2723] text-xs tracking-widest backdrop-blur-sm transition-colors"
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 3a7 7 0 110 14A7 7 0 0112 5zm0 2a5 5 0 100 10A5 5 0 0012 7z" opacity=".3"/>
-                <path d="M12 7a5 5 0 100 10A5 5 0 0012 7zm-1 2h2v2h2v2h-2v2h-2v-2H9v-2h2V9z" opacity=".5"/>
-              </svg>
-              구글로 로그인
-            </motion.button>
-          )}
-        </motion.div>
-      )}
 
       {/* 상단 장식 룬 */}
       <div className="absolute top-7 left-1/2 -translate-x-1/2 flex items-center gap-4 opacity-45">
@@ -184,7 +192,7 @@ export default function MedievalHero({ onEnter }: MedievalHeroProps) {
             whileTap={{ scale: 0.97 }}
             className="px-10 py-4 bg-[#8d6e63] hover:bg-[#795548] border border-[#5d4037] text-[#f4e4bc] text-lg font-bold tracking-[0.18em] shadow-[0_4px_22px_rgba(0,0,0,0.65)] transition-colors rounded-sm"
           >
-            책장을 열다
+            나의 책장을 열다
           </motion.button>
         </motion.div>
       </div>
@@ -220,11 +228,18 @@ export default function MedievalHero({ onEnter }: MedievalHeroProps) {
         </motion.div>
       </div>
 
-      {/* 하단 라틴어 장식 */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-3 opacity-20 z-10">
-        <div className="w-14 h-px bg-[#d4b483]" />
-        <span className="text-[#d4b483] text-[10px] tracking-[0.35em] uppercase">Liber Stellarum</span>
-        <div className="w-14 h-px bg-[#d4b483]" />
+      {/* 하단 약관 링크 + 라틴어 장식 */}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 z-10">
+        <div className="flex items-center gap-3 opacity-20">
+          <div className="w-14 h-px bg-[#d4b483]" />
+          <span className="text-[#d4b483] text-[10px] tracking-[0.35em] uppercase">Liber Stellarum</span>
+          <div className="w-14 h-px bg-[#d4b483]" />
+        </div>
+        <div className="flex items-center gap-3 opacity-35">
+          <Link href="/terms" className="text-[#d4b483] text-[10px] tracking-widest hover:opacity-70 transition-opacity">이용약관</Link>
+          <span className="text-[#d4b483]/40 text-[10px]">·</span>
+          <Link href="/privacy" className="text-[#d4b483] text-[10px] tracking-widest hover:opacity-70 transition-opacity">개인정보처리방침</Link>
+        </div>
       </div>
     </motion.section>
   )

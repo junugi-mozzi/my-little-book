@@ -4,7 +4,8 @@
 import { motion } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
 
 const PARTICLES = [
   { w: 1.5, h: 2.1, top: '15%', left: '23%', duration: 3.2, delay: 0.5 },
@@ -30,6 +31,7 @@ const PARTICLES = [
 export default function AuthPage() {
   const { user, loading, signInWithGoogle } = useAuth()
   const router = useRouter()
+  const [agreed, setAgreed] = useState(false)
 
   useEffect(() => {
     if (!loading && user) router.push('/')
@@ -97,12 +99,37 @@ export default function AuthPage() {
               <span className="font-semibold">음유시인의 서명</span>이 필요하다네.
             </p>
 
+            {/* 약관 동의 체크박스 */}
+            <label className="flex items-start gap-3 cursor-pointer group w-full">
+              <div className="relative mt-0.5 shrink-0">
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                  className="sr-only"
+                />
+                <div className={`w-4 h-4 border rounded-sm transition-colors ${agreed ? 'bg-[#8d6e63] border-[#8d6e63]' : 'border-[#8d6e63]/60 bg-transparent group-hover:border-[#8d6e63]'}`}>
+                  {agreed && (
+                    <svg className="w-full h-full text-[#f4e4bc]" viewBox="0 0 16 16" fill="none">
+                      <path d="M3 8l3.5 3.5 6.5-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </div>
+              </div>
+              <span className="text-[#5d4037] text-xs leading-relaxed">
+                <Link href="/terms" target="_blank" className="text-[#8d6e63] font-semibold hover:underline">이용약관</Link>
+                {' '}및{' '}
+                <Link href="/privacy" target="_blank" className="text-[#8d6e63] font-semibold hover:underline">개인정보처리방침</Link>
+                에 동의합니다. (필수)
+              </span>
+            </label>
+
             {/* Google 로그인 버튼 */}
             <motion.button
-              whileHover={{ scale: 1.02, boxShadow: '0 6px 20px rgba(0,0,0,0.25)' }}
-              whileTap={{ scale: 0.98 }}
-              onClick={signInWithGoogle}
-              className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-[#3e2723] hover:bg-[#4e342e] border border-[#5d4037] rounded-lg text-[#f4e4bc] font-semibold tracking-wide transition-colors shadow-md"
+              whileHover={agreed ? { scale: 1.02, boxShadow: '0 6px 20px rgba(0,0,0,0.25)' } : {}}
+              whileTap={agreed ? { scale: 0.98 } : {}}
+              onClick={agreed ? signInWithGoogle : undefined}
+              className={`w-full flex items-center justify-center gap-3 px-6 py-4 border rounded-lg font-semibold tracking-wide transition-colors shadow-md ${agreed ? 'bg-[#3e2723] hover:bg-[#4e342e] border-[#5d4037] text-[#f4e4bc] cursor-pointer' : 'bg-[#2a1f1a] border-[#3e2723] text-[#f4e4bc]/30 cursor-not-allowed'}`}
             >
               {/* Google G 로고 */}
               <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
@@ -115,7 +142,7 @@ export default function AuthPage() {
             </motion.button>
 
             {/* 하단 장식 문구 */}
-            <p className="text-[#a1887f] text-xs tracking-wider text-center">
+            <p className="text-[#6d4c41] text-xs tracking-wider text-center">
               — 별빛이 그대의 이야기를 기다린다 —
             </p>
 

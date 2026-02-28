@@ -10,6 +10,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '장르, 시대, 분위기, 키워드를 모두 입력해주세요.' }, { status: 400 })
   }
 
+  // 인증 토큰으로 user_id 추출
+  const token = req.headers.get('authorization')?.replace('Bearer ', '')
+  let userId: string | null = null
+  if (token) {
+    const { data: { user } } = await supabase.auth.getUser(token)
+    userId = user?.id ?? null
+  }
+
   // TODO: AI 모델 연동 후 실제 아웃라인 생성 로직으로 교체
   const mockOutline: Chapter[] = [
     { id: 1, title: '별의 부름', summary: '주인공이 신비한 류트를 발견한다.', status: 'pending' },
@@ -27,6 +35,7 @@ export async function POST(req: NextRequest) {
       keywords,
       type: 'long',
       outline: mockOutline,
+      user_id: userId,
     })
     .select()
     .single()
