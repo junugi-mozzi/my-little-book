@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install @supabase/supabase-js)",
+      "Bash(claude mcp add --scope project --transport http supabase \"https://mcp.supabase.com/mcp\")",
+      "Bash(where claude)",
+      "Bash(cmd //c \"where claude\")",
+      "mcp__supabase__list_projects",
+      "mcp__supabase__get_project",
+      "mcp__supabase__get_project_url",
+      "mcp__supabase__get_publishable_keys",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__apply_migration"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "supabase"
+  ],
+  "enableAllProjectMcpServers": true
+}
