@@ -7,6 +7,8 @@ import { useStoryStore, StoryField } from '@/store/storyStore'
 import { useState } from 'react'
 import GridLoader from '../../GridLoader'
 import { useAuthGuard } from '@/hooks/useAuthGuard'
+import { supabase } from '@/lib/supabase'
+import BookCover from '@/components/BookCover'
 
 const FIELD_LABELS: Record<StoryField, string> = {
   genre: '장르',
@@ -26,11 +28,34 @@ export default function ShortStoryPage() {
   const router = useRouter()
   const store = useStoryStore()
   const { setField } = store
-  const { session } = useAuthGuard()
+  const { user, session } = useAuthGuard()
   const [result, setResult] = useState<string>('')
   const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [savedId, setSavedId] = useState<string | null>(null)
+
+  const handleSave = async () => {
+    if (!result || savedId || saving) return
+    setSaving(true)
+    const { data } = await supabase
+      .from('stories')
+      .insert({
+        genre: store.genre,
+        era: store.era,
+        mood: store.mood,
+        keywords: store.keywords,
+        type: 'short',
+        content: result,
+        user_id: user?.id ?? null,
+      })
+      .select('id')
+      .single()
+    if (data?.id) setSavedId(data.id)
+    setSaving(false)
+  }
 
   const handleGenerate = async () => {
+    setSavedId(null)
     setLoading(true)
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -173,11 +198,35 @@ export default function ShortStoryPage() {
                 <div className="w-12 h-px bg-[#8d6e63] opacity-50" />
               </div>
 
+              {/* 책 표지 */}
+              <div className="relative flex justify-center pt-8 pb-2">
+                <BookCover genre={store.genre} era={store.era} mood={store.mood} size="md" />
+              </div>
+
               {/* 본문 */}
-              <div className="relative p-8">
+              <div className="relative p-8 pt-6">
                 <p className="text-[#3e2723] leading-loose text-base whitespace-pre-wrap first-letter:text-5xl first-letter:font-bold first-letter:text-[#8d6e63] first-letter:float-left first-letter:mr-3 first-letter:leading-none">
                   {result}
                 </p>
+              </div>
+
+              {/* 저장 버튼 */}
+              <div className="relative px-8 pb-8 flex justify-end border-t border-[#d4b483]/30 pt-5">
+                {savedId ? (
+                  <span className="text-[#8d6e63] text-sm tracking-widest flex items-center gap-2">
+                    ✦ 서재에 저장되었습니다
+                  </span>
+                ) : (
+                  <motion.button
+                    onClick={handleSave}
+                    disabled={saving}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="px-6 py-2.5 bg-[#8d6e63] hover:bg-[#795548] text-[#f4e4bc] text-sm rounded border border-[#5d4037] tracking-widest transition-colors disabled:opacity-50"
+                  >
+                    {saving ? '저장 중...' : '📚 서재에 저장하기'}
+                  </motion.button>
+                )}
               </div>
             </motion.div>
           )}

@@ -9,7 +9,6 @@ import { useStoryStore } from '@/store/storyStore'
 import GridLoader from '../../GridLoader'
 import { useIsClient } from '@/hooks/useIsClient'
 import { useAuthGuard } from '@/hooks/useAuthGuard'
-
 const HERO_IMAGE_FILENAME = '마리북-음유시인bard-hero.png.png';
 
 export default function StoryPage() {
@@ -49,7 +48,9 @@ export default function StoryPage() {
   // 4단계 도달 시 책장 넘기기 트리거
   useEffect(() => {
     if (step >= 4) {
-      setTimeout(() => setIsFlipped(true), 1500)
+      setTimeout(() => {
+        setIsFlipped(true)
+      }, 1500)
     }
   }, [step])
 

@@ -7,6 +7,8 @@ import { useStoryStore, StoryField } from '@/store/storyStore'
 import { useState } from 'react'
 import GridLoader from '../../GridLoader'
 import { useAuthGuard } from '@/hooks/useAuthGuard'
+import { supabase } from '@/lib/supabase'
+import BookCover from '@/components/BookCover'
 
 const FIELD_LABELS: Record<StoryField, string> = {
   genre: '장르',
@@ -25,10 +27,33 @@ export default function LongStoryPage() {
   const router = useRouter()
   const store = useStoryStore()
   const { outline, setOutline, setField } = store
-  const { session } = useAuthGuard()
+  const { user, session } = useAuthGuard()
   const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [savedId, setSavedId] = useState<string | null>(null)
+
+  const handleSave = async () => {
+    if (outline.length === 0 || savedId || saving) return
+    setSaving(true)
+    const { data } = await supabase
+      .from('stories')
+      .insert({
+        genre: store.genre,
+        era: store.era,
+        mood: store.mood,
+        keywords: store.keywords,
+        type: 'long',
+        outline,
+        user_id: user?.id ?? null,
+      })
+      .select('id')
+      .single()
+    if (data?.id) setSavedId(data.id)
+    setSaving(false)
+  }
 
   const handleGenerateOutline = async () => {
+    setSavedId(null)
     setLoading(true)
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -166,6 +191,11 @@ export default function LongStoryPage() {
                 <div className="flex-1 h-px bg-[#d4b483]" />
               </div>
 
+              {/* 책 표지 */}
+              <div className="flex justify-center py-2">
+                <BookCover genre={store.genre} era={store.era} mood={store.mood} size="md" />
+              </div>
+
               {outline.map((chapter, i) => (
                 <motion.div
                   key={chapter.id}
@@ -215,6 +245,25 @@ export default function LongStoryPage() {
                   </div>
                 </motion.div>
               ))}
+
+              {/* 저장 버튼 */}
+              <div className="flex justify-end pt-2">
+                {savedId ? (
+                  <span className="text-[#8d6e63] text-sm tracking-widest flex items-center gap-2">
+                    ✦ 서재에 저장되었습니다
+                  </span>
+                ) : (
+                  <motion.button
+                    onClick={handleSave}
+                    disabled={saving}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="px-6 py-2.5 bg-[#d4b483] hover:bg-[#c6a165] text-[#3e2723] text-sm font-semibold rounded border border-[#8d6e63] tracking-widest transition-colors disabled:opacity-50"
+                  >
+                    {saving ? '저장 중...' : '📚 서재에 저장하기'}
+                  </motion.button>
+                )}
+              </div>
 
               {/* 하단 장식 */}
               <div className="flex items-center justify-center gap-4 pt-4 opacity-30">

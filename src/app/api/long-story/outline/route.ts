@@ -1,6 +1,5 @@
 // src/app/api/long-story/outline/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
 import type { Chapter } from '@/store/storyStore'
 
 export async function POST(req: NextRequest) {
@@ -10,14 +9,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '장르, 시대, 분위기, 키워드를 모두 입력해주세요.' }, { status: 400 })
   }
 
-  // 인증 토큰으로 user_id 추출
-  const token = req.headers.get('authorization')?.replace('Bearer ', '')
-  let userId: string | null = null
-  if (token) {
-    const { data: { user } } = await supabase.auth.getUser(token)
-    userId = user?.id ?? null
-  }
-
   // TODO: AI 모델 연동 후 실제 아웃라인 생성 로직으로 교체
   const mockOutline: Chapter[] = [
     { id: 1, title: '별의 부름', summary: '주인공이 신비한 류트를 발견한다.', status: 'pending' },
@@ -25,24 +16,5 @@ export async function POST(req: NextRequest) {
     { id: 3, title: '잊혀진 선율', summary: '고대 음유시인의 악보를 손에 넣는다.', status: 'pending' },
   ]
 
-  // Supabase에 아웃라인 저장
-  const { data, error } = await supabase
-    .from('stories')
-    .insert({
-      genre,
-      era,
-      mood,
-      keywords,
-      type: 'long',
-      outline: mockOutline,
-      user_id: userId,
-    })
-    .select()
-    .single()
-
-  if (error) {
-    console.error('Supabase insert error:', error)
-  }
-
-  return NextResponse.json({ outline: mockOutline, id: data?.id ?? null })
+  return NextResponse.json({ outline: mockOutline })
 }

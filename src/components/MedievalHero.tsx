@@ -1,7 +1,7 @@
 'use client'
 
-import { motion } from 'framer-motion'
-import { useEffect, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useBGMStore } from '@/store/bgmStore'
 
@@ -32,11 +32,47 @@ const FADE_IN = {
 
 const ROTATE_OFFSETS = [-2.5, 1.8, -1.2, 2.5, -3, 1.5, -2, 2]
 
+const CHARS = ['✦', '✧', '⋆', '·', '✺']
+
+interface Particle {
+  id: number
+  x: number
+  y: number
+  char: string
+  size: number
+  dx: number
+  dy: number
+  duration: number
+}
+
 export default function MedievalHero({ onEnter }: MedievalHeroProps) {
   const duplicated = [...BOOK_IMAGES, ...BOOK_IMAGES]
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const fadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const { muted } = useBGMStore()
+
+  const [particles, setParticles] = useState<Particle[]>([])
+  const lastTimeRef = useRef(0)
+  const counterRef = useRef(0)
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const now = Date.now()
+    if (now - lastTimeRef.current < 40) return
+    lastTimeRef.current = now
+
+    const rect = e.currentTarget.getBoundingClientRect()
+    const particle: Particle = {
+      id: counterRef.current++,
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      char: CHARS[Math.floor(Math.random() * CHARS.length)],
+      size: 8 + Math.random() * 6,
+      dx: (Math.random() - 0.5) * 30,
+      dy: 20 + Math.random() * 25,
+      duration: 0.7 + Math.random() * 0.5,
+    }
+    setParticles(prev => [...prev.slice(-30), particle])
+  }
 
   useEffect(() => {
     const audio = new Audio('/bgm/mainpagebgm-hero.mp3')
@@ -97,7 +133,28 @@ export default function MedievalHero({ onEnter }: MedievalHeroProps) {
       exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.4 } }}
       transition={{ duration: 0.6 }}
       className="relative w-full min-h-screen overflow-hidden bg-[#1a1412] flex flex-col items-center justify-center text-center px-4 font-serif"
+      onMouseMove={handleMouseMove}
     >
+      {/* 별가루 파티클 */}
+      <AnimatePresence>
+        {particles.map(p => (
+          <motion.span
+            key={p.id}
+            initial={{ opacity: 0.9, x: p.x, y: p.y, scale: 1 }}
+            animate={{ opacity: 0, x: p.x + p.dx, y: p.y + p.dy, scale: 0.3 }}
+            exit={{}}
+            transition={{ duration: p.duration, ease: 'easeOut' }}
+            onAnimationComplete={() =>
+              setParticles(prev => prev.filter(pp => pp.id !== p.id))
+            }
+            className="absolute pointer-events-none select-none text-[#d4b483] z-30"
+            style={{ fontSize: p.size, left: 0, top: 0, translateX: '-50%', translateY: '-50%' }}
+          >
+            {p.char}
+          </motion.span>
+        ))}
+      </AnimatePresence>
+
       {/* 캔들라이트 방사형 광원 */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_55%_at_50%_38%,_rgba(180,118,36,0.18),_transparent)] pointer-events-none" />
       {/* 양피지 질감 */}

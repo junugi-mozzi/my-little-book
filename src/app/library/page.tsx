@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { useAuthGuard } from '@/hooks/useAuthGuard'
 import { supabase } from '@/lib/supabase'
+import BookCover from '@/components/BookCover'
 
 interface Story {
   id: string
@@ -25,6 +26,8 @@ export default function LibraryPage() {
   const [stories, setStories] = useState<Story[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Story | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     if (authLoading || !user) return
@@ -41,6 +44,21 @@ export default function LibraryPage() {
 
     if (!error && data) setStories(data as Story[])
     setLoading(false)
+  }
+
+  const closeModal = () => {
+    setSelected(null)
+    setDeleteConfirm(false)
+  }
+
+  const deleteStory = async (id: string) => {
+    setDeleting(true)
+    const { error } = await supabase.from('stories').delete().eq('id', id)
+    if (!error) {
+      setStories(prev => prev.filter(s => s.id !== id))
+      closeModal()
+    }
+    setDeleting(false)
   }
 
   const formatDate = (iso: string) => {
@@ -143,24 +161,25 @@ export default function LibraryPage() {
                 <div className="absolute inset-0 bg-[#3e2723]/0 group-hover:bg-[#3e2723]/8 transition-colors duration-200 pointer-events-none rounded-xl" />
 
                 <div className="relative p-6 flex flex-col gap-3">
-                  {/* 타입 뱃지 + 날짜 */}
-                  <div className="flex items-center justify-between">
-                    <span className={`text-xs px-2.5 py-1 rounded border tracking-wider ${
-                      story.type === 'short'
-                        ? 'text-[#5d4037] border-[#8d6e63]/50 bg-[#e0cfa0]'
-                        : 'text-[#a1887f] border-[#a1887f]/40 bg-[#e8dcc4]'
-                    }`}>
-                      {story.type === 'short' ? '단편' : '장편'}
-                    </span>
-                    <span className="text-[#a1887f] text-xs tracking-wider">{formatDate(story.created_at)}</span>
-                  </div>
-
-                  {/* 장르 / 시대 */}
-                  <div>
-                    <p className="text-[#5d4037] font-bold text-base leading-snug">
-                      {story.genre} · {story.era}
-                    </p>
-                    <p className="text-[#8d6e63] text-xs mt-1 tracking-wide">{story.mood}</p>
+                  {/* 책 표지 + 타입 뱃지 + 날짜 */}
+                  <div className="flex items-start gap-3">
+                    <BookCover genre={story.genre} era={story.era} mood={story.mood} size="sm" />
+                    <div className="flex flex-col justify-between flex-1 self-stretch">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-xs px-2.5 py-1 rounded border tracking-wider ${
+                          story.type === 'short'
+                            ? 'text-[#5d4037] border-[#8d6e63]/50 bg-[#e0cfa0]'
+                            : 'text-[#a1887f] border-[#a1887f]/40 bg-[#e8dcc4]'
+                        }`}>
+                          {story.type === 'short' ? '단편' : '장편'}
+                        </span>
+                        <span className="text-[#a1887f] text-[10px] tracking-wider">{formatDate(story.created_at)}</span>
+                      </div>
+                      <div>
+                        <p className="text-[#5d4037] font-bold text-sm leading-snug">{story.genre} · {story.era}</p>
+                        <p className="text-[#8d6e63] text-xs mt-0.5 tracking-wide">{story.mood}</p>
+                      </div>
+                    </div>
                   </div>
 
                   {/* 구분선 */}
@@ -202,7 +221,7 @@ export default function LibraryPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setSelected(null)}
+              onClick={closeModal}
               className="fixed inset-0 bg-black/70 z-40 backdrop-blur-sm"
             />
 
@@ -219,6 +238,11 @@ export default function LibraryPage() {
                   className="absolute inset-0 opacity-20 pointer-events-none"
                   style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/old-wall.png')" }}
                 />
+
+                {/* 책 표지 */}
+                <div className="relative flex justify-center pt-8 pb-4">
+                  <BookCover genre={selected.genre} era={selected.era} mood={selected.mood} size="lg" />
+                </div>
 
                 {/* 모달 헤더 */}
                 <div className="sticky top-0 z-10 relative bg-[#f4e4bc]/95 backdrop-blur-sm p-6 border-b border-[#d4b483]/50 flex items-start justify-between gap-4">
@@ -242,12 +266,42 @@ export default function LibraryPage() {
                     </h2>
                     <p className="text-[#8d6e63] text-sm mt-0.5">{selected.mood} · {selected.keywords}</p>
                   </div>
-                  <button
-                    onClick={() => setSelected(null)}
-                    className="relative shrink-0 w-8 h-8 rounded-full border border-[#a1887f]/50 text-[#8d6e63] hover:text-[#3e2723] hover:border-[#8d6e63] transition-colors flex items-center justify-center text-lg leading-none"
-                  >
-                    ×
-                  </button>
+                  <div className="relative flex items-center gap-2 shrink-0">
+                    {/* 삭제 버튼 */}
+                    {!deleteConfirm ? (
+                      <button
+                        onClick={() => setDeleteConfirm(true)}
+                        className="w-8 h-8 rounded-full border border-[#c0392b]/40 text-[#c0392b]/60 hover:text-[#c0392b] hover:border-[#c0392b] transition-colors flex items-center justify-center text-sm"
+                        title="이야기 삭제"
+                      >
+                        🗑
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-1.5 animate-in fade-in">
+                        <span className="text-[#c0392b] text-xs tracking-wide">삭제할까요?</span>
+                        <button
+                          onClick={() => deleteStory(selected!.id)}
+                          disabled={deleting}
+                          className="px-2.5 py-1 bg-[#c0392b] text-white text-xs rounded border border-[#c0392b] hover:bg-[#a93226] transition-colors disabled:opacity-50"
+                        >
+                          {deleting ? '...' : '삭제'}
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm(false)}
+                          className="px-2.5 py-1 text-[#8d6e63] text-xs rounded border border-[#a1887f]/50 hover:border-[#8d6e63] transition-colors"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    )}
+                    {/* 닫기 버튼 */}
+                    <button
+                      onClick={closeModal}
+                      className="w-8 h-8 rounded-full border border-[#a1887f]/50 text-[#8d6e63] hover:text-[#3e2723] hover:border-[#8d6e63] transition-colors flex items-center justify-center text-lg leading-none"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
 
                 {/* 모달 본문 */}
