@@ -3,31 +3,24 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { useStoryStore, StoryField } from '@/store/storyStore'
+import { useStoryStore } from '@/store/storyStore'
 import { useState } from 'react'
 import GridLoader from '../../GridLoader'
 import { useAuthGuard } from '@/hooks/useAuthGuard'
 import { supabase } from '@/lib/supabase'
 import BookCover from '@/components/BookCover'
 
-const FIELD_LABELS: Record<StoryField, string> = {
-  genre: '장르',
-  era: '시대',
-  mood: '분위기',
-  keywords: '핵심 단서',
-}
-
-const FIELD_PLACEHOLDERS: Record<StoryField, string> = {
-  genre: '예) 판타지, 로맨스, 미스터리...',
-  era: '예) 중세, 현대, 미래...',
-  mood: '예) 몽환적, 긴박한, 따뜻한...',
-  keywords: '예) 마법사, 비밀 결사, 잃어버린 왕국...',
-}
+const CONTEXT_LABELS = [
+  { key: 'genre', label: '세계와 분위기' },
+  { key: 'characterFlaw', label: '주인공의 흉터' },
+  { key: 'goal', label: '주인공의 열망' },
+  { key: 'conflict', label: '가로막는 운명' },
+  { key: 'bgmMood', label: '이야기의 선율' },
+] as const
 
 export default function ShortStoryPage() {
   const router = useRouter()
   const store = useStoryStore()
-  const { setField } = store
   const { user, session } = useAuthGuard()
   const [result, setResult] = useState<string>('')
   const [loading, setLoading] = useState(false)
@@ -38,12 +31,12 @@ export default function ShortStoryPage() {
     if (!result || savedId || saving) return
     setSaving(true)
     const { data } = await supabase
-      .from('stories')
+      .from('library')
       .insert({
         genre: store.genre,
-        era: store.era,
-        mood: store.mood,
-        keywords: store.keywords,
+        era: store.characterFlaw,
+        mood: store.bgmMood,
+        keywords: `${store.goal} / ${store.conflict}`,
         type: 'short',
         content: result,
         user_id: user?.id ?? null,
@@ -66,9 +59,10 @@ export default function ShortStoryPage() {
         headers,
         body: JSON.stringify({
           genre: store.genre,
-          era: store.era,
-          mood: store.mood,
-          keywords: store.keywords,
+          characterFlaw: store.characterFlaw,
+          goal: store.goal,
+          conflict: store.conflict,
+          bgmMood: store.bgmMood,
         }),
       })
       const data = await res.json()
@@ -133,29 +127,21 @@ export default function ShortStoryPage() {
               <div className="w-16 h-px bg-[#8d6e63]" />
             </div>
             <h1 className="text-3xl font-bold text-[#5d4037] tracking-wide">단편 소설 짓기</h1>
-            <p className="mt-2 text-sm text-[#8d6e63] tracking-wider">조각을 확인하고, 이야기를 소환하세요</p>
+            <p className="mt-2 text-sm text-[#8d6e63] tracking-wider">루미스가 모은 이야기 조각으로 소설을 소환합니다</p>
           </div>
 
-          {/* 입력 필드 */}
-          <div className="relative p-8 grid grid-cols-1 md:grid-cols-2 gap-7">
-            {(Object.keys(FIELD_LABELS) as StoryField[]).map((field, i) => (
+          {/* 수집된 이야기 조각 표시 */}
+          <div className="relative p-8 space-y-4">
+            {CONTEXT_LABELS.map(({ key, label }, i) => (
               <motion.div
-                key={field}
+                key={key}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 + i * 0.07 }}
-                className="flex flex-col gap-2"
+                className="flex gap-4 border-b border-[#d4b483]/40 pb-3"
               >
-                <label className="text-xs font-bold text-[#8d6e63] tracking-[0.25em] uppercase">
-                  {FIELD_LABELS[field]}
-                </label>
-                <input
-                  type="text"
-                  value={store[field]}
-                  onChange={(e) => setField(field, e.target.value)}
-                  placeholder={FIELD_PLACEHOLDERS[field]}
-                  className="bg-transparent border-b border-[#a1887f] px-1 py-2 text-[#3e2723] text-base focus:outline-none focus:border-[#5d4037] transition-colors placeholder-[#a1887f]/50"
-                />
+                <span className="text-xs font-bold text-[#8d6e63] tracking-widest uppercase shrink-0 w-24 pt-0.5">{label}</span>
+                <span className="text-[#3e2723] text-sm leading-relaxed">{store[key] || '—'}</span>
               </motion.div>
             ))}
           </div>
@@ -164,7 +150,7 @@ export default function ShortStoryPage() {
           <div className="relative p-8 pt-0">
             <motion.button
               onClick={handleGenerate}
-              disabled={loading}
+              disabled={loading || !store.genre}
               whileHover={{ scale: 1.02, boxShadow: '0 6px 20px rgba(0,0,0,0.4)' }}
               whileTap={{ scale: 0.98 }}
               className="w-full py-4 bg-[#8d6e63] hover:bg-[#795548] text-[#f4e4bc] font-bold text-lg tracking-widest rounded border border-[#5d4037] shadow-[0_4px_15px_rgba(0,0,0,0.35)] transition-colors disabled:opacity-50"
@@ -200,7 +186,7 @@ export default function ShortStoryPage() {
 
               {/* 책 표지 */}
               <div className="relative flex justify-center pt-8 pb-2">
-                <BookCover genre={store.genre} era={store.era} mood={store.mood} size="md" />
+                <BookCover genre={store.genre} era={store.characterFlaw} mood={store.bgmMood} size="md" />
               </div>
 
               {/* 본문 */}

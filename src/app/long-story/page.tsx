@@ -3,19 +3,20 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { useStoryStore, StoryField } from '@/store/storyStore'
+import { useStoryStore } from '@/store/storyStore'
 import { useState } from 'react'
 import GridLoader from '../../GridLoader'
 import { useAuthGuard } from '@/hooks/useAuthGuard'
 import { supabase } from '@/lib/supabase'
 import BookCover from '@/components/BookCover'
 
-const FIELD_LABELS: Record<StoryField, string> = {
-  genre: '장르',
-  era: '시대',
-  mood: '분위기',
-  keywords: '핵심 단서',
-}
+const CONTEXT_LABELS = [
+  { key: 'genre', label: '세계와 분위기' },
+  { key: 'characterFlaw', label: '주인공의 흉터' },
+  { key: 'goal', label: '주인공의 열망' },
+  { key: 'conflict', label: '가로막는 운명' },
+  { key: 'bgmMood', label: '이야기의 선율' },
+] as const
 
 const STATUS_MAP = {
   pending:    { label: '대기 중',  style: 'text-[#a1887f] border-[#a1887f]/40 bg-[#e8dcc4]' },
@@ -26,7 +27,7 @@ const STATUS_MAP = {
 export default function LongStoryPage() {
   const router = useRouter()
   const store = useStoryStore()
-  const { outline, setOutline, setField } = store
+  const { outline, setOutline, updateChapterContent, updateChapterStatus } = store
   const { user, session } = useAuthGuard()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -36,12 +37,12 @@ export default function LongStoryPage() {
     if (outline.length === 0 || savedId || saving) return
     setSaving(true)
     const { data } = await supabase
-      .from('stories')
+      .from('library')
       .insert({
         genre: store.genre,
-        era: store.era,
-        mood: store.mood,
-        keywords: store.keywords,
+        era: store.characterFlaw,
+        mood: store.bgmMood,
+        keywords: `${store.goal} / ${store.conflict}`,
         type: 'long',
         outline,
         user_id: user?.id ?? null,
@@ -50,6 +51,37 @@ export default function LongStoryPage() {
       .single()
     if (data?.id) setSavedId(data.id)
     setSaving(false)
+  }
+
+  const handleGenerateChapter = async (chapterId: number) => {
+    const chapter = outline.find(c => c.id === chapterId)
+    if (!chapter) return
+    updateChapterStatus(chapterId, 'generating')
+    try {
+      const res = await fetch('/api/long-story/chapter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          genre: store.genre,
+          characterFlaw: store.characterFlaw,
+          goal: store.goal,
+          conflict: store.conflict,
+          bgmMood: store.bgmMood,
+          chapterId,
+          chapterTitle: chapter.title,
+          chapterSummary: chapter.summary,
+          allChapters: outline.map(c => ({ id: c.id, title: c.title, summary: c.summary })),
+        }),
+      })
+      const data = await res.json()
+      if (data.content) {
+        updateChapterContent(chapterId, data.content)
+      } else {
+        updateChapterStatus(chapterId, 'pending')
+      }
+    } catch {
+      updateChapterStatus(chapterId, 'pending')
+    }
   }
 
   const handleGenerateOutline = async () => {
@@ -64,9 +96,10 @@ export default function LongStoryPage() {
         headers,
         body: JSON.stringify({
           genre: store.genre,
-          era: store.era,
-          mood: store.mood,
-          keywords: store.keywords,
+          characterFlaw: store.characterFlaw,
+          goal: store.goal,
+          conflict: store.conflict,
+          bgmMood: store.bgmMood,
         }),
       })
       const data = await res.json()
@@ -126,26 +159,18 @@ export default function LongStoryPage() {
             <p className="mt-2 text-sm text-[#8d6e63] tracking-wider">스토리의 목차를 먼저 생성합니다</p>
           </div>
 
-          {/* 입력 필드 */}
-          <div className="relative p-8 grid grid-cols-2 md:grid-cols-4 gap-6">
-            {(Object.keys(FIELD_LABELS) as StoryField[]).map((field, i) => (
+          {/* 수집된 이야기 조각 표시 */}
+          <div className="relative p-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {CONTEXT_LABELS.map(({ key, label }, i) => (
               <motion.div
-                key={field}
+                key={key}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 + i * 0.07 }}
-                className="flex flex-col gap-2"
+                className="flex flex-col gap-1 border-b border-[#d4b483]/40 pb-3"
               >
-                <label className="text-xs font-bold text-[#8d6e63] tracking-[0.25em] uppercase">
-                  {FIELD_LABELS[field]}
-                </label>
-                <input
-                  type="text"
-                  value={store[field]}
-                  onChange={(e) => setField(field, e.target.value)}
-                  placeholder={FIELD_LABELS[field]}
-                  className="bg-transparent border-b border-[#a1887f] px-1 py-2 text-[#3e2723] text-sm focus:outline-none focus:border-[#5d4037] transition-colors placeholder-[#a1887f]/50"
-                />
+                <span className="text-xs font-bold text-[#8d6e63] tracking-widest uppercase">{label}</span>
+                <span className="text-[#3e2723] text-sm leading-relaxed">{store[key] || '—'}</span>
               </motion.div>
             ))}
           </div>
@@ -154,7 +179,7 @@ export default function LongStoryPage() {
           <div className="relative p-8 pt-0">
             <motion.button
               onClick={handleGenerateOutline}
-              disabled={loading}
+              disabled={loading || !store.genre}
               whileHover={{ scale: 1.02, boxShadow: '0 6px 20px rgba(0,0,0,0.4)' }}
               whileTap={{ scale: 0.98 }}
               className="w-full py-4 bg-[#d4b483] hover:bg-[#c6a165] text-[#3e2723] font-bold text-lg tracking-widest rounded border border-[#8d6e63] shadow-[0_4px_15px_rgba(0,0,0,0.35)] transition-colors disabled:opacity-50"
@@ -193,7 +218,7 @@ export default function LongStoryPage() {
 
               {/* 책 표지 */}
               <div className="flex justify-center py-2">
-                <BookCover genre={store.genre} era={store.era} mood={store.mood} size="md" />
+                <BookCover genre={store.genre} era={store.characterFlaw} mood={store.bgmMood} size="md" />
               </div>
 
               {outline.map((chapter, i) => (
@@ -234,13 +259,27 @@ export default function LongStoryPage() {
                       <div className="w-full h-px bg-[#d4b483]/35 my-1" />
 
                       <motion.button
-                        disabled={chapter.status === 'generating'}
+                        onClick={() => handleGenerateChapter(chapter.id)}
+                        disabled={chapter.status === 'generating' || chapter.status === 'completed'}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         className="self-end px-5 py-2 bg-[#8d6e63] hover:bg-[#795548] text-[#f4e4bc] text-sm rounded border border-[#5d4037] transition-colors disabled:opacity-40 tracking-widest"
                       >
-                        이 챕터 집필하기
+                        {chapter.status === 'generating' ? '집필 중...' : chapter.status === 'completed' ? '✦ 완성됨' : '이 챕터 집필하기'}
                       </motion.button>
+
+                      {/* 완성된 챕터 본문 */}
+                      {chapter.status === 'completed' && chapter.content && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className="mt-2 pt-4 border-t border-[#d4b483]/40"
+                        >
+                          <p className="text-[#3e2723] text-sm leading-loose whitespace-pre-wrap">
+                            {chapter.content}
+                          </p>
+                        </motion.div>
+                      )}
                     </div>
                   </div>
                 </motion.div>

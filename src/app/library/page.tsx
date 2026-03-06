@@ -37,7 +37,7 @@ export default function LibraryPage() {
   const fetchStories = async () => {
     setLoading(true)
     const { data, error } = await supabase
-      .from('stories')
+      .from('library')
       .select('*')
       .eq('user_id', user!.id)
       .order('created_at', { ascending: false })
@@ -53,7 +53,7 @@ export default function LibraryPage() {
 
   const deleteStory = async (id: string) => {
     setDeleting(true)
-    const { error } = await supabase.from('stories').delete().eq('id', id)
+    const { error } = await supabase.from('library').delete().eq('id', id)
     if (!error) {
       setStories(prev => prev.filter(s => s.id !== id))
       closeModal()

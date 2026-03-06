@@ -9,19 +9,17 @@ export interface Chapter {
   status: 'pending' | 'generating' | 'completed';
 }
 
-export type StoryField = 'genre' | 'era' | 'mood' | 'keywords';
-
-interface StoryState {
+export interface StoryContext {
   genre: string;
-  era: string;
-  mood: string;
-  keywords: string;
+  characterFlaw: string;
+  goal: string;
+  conflict: string;
+  bgmMood: string;
+}
+
+interface StoryState extends StoryContext {
   outline: Chapter[];
-  setGenre: (genre: string) => void;
-  setEra: (era: string) => void;
-  setMood: (mood: string) => void;
-  setKeywords: (keywords: string) => void;
-  setField: (field: StoryField, value: string) => void;
+  setStoryContext: (ctx: StoryContext) => void;
   setOutline: (outline: Chapter[]) => void;
   updateChapterContent: (id: number, content: string) => void;
   updateChapterStatus: (id: number, status: Chapter['status']) => void;
@@ -30,15 +28,12 @@ interface StoryState {
 
 export const useStoryStore = create<StoryState>((set) => ({
   genre: '',
-  era: '',
-  mood: '',
-  keywords: '',
+  characterFlaw: '',
+  goal: '',
+  conflict: '',
+  bgmMood: '',
   outline: [],
-  setGenre: (genre) => set({ genre }),
-  setEra: (era) => set({ era }),
-  setMood: (mood) => set({ mood }),
-  setKeywords: (keywords) => set({ keywords }),
-  setField: (field, value) => set({ [field]: value }),
+  setStoryContext: (ctx) => set(ctx),
   setOutline: (outline) => set({ outline }),
   updateChapterContent: (id, content) =>
     set((state) => ({
@@ -48,5 +43,5 @@ export const useStoryStore = create<StoryState>((set) => ({
     set((state) => ({
       outline: state.outline.map((ch) => (ch.id === id ? { ...ch, status } : ch)),
     })),
-  resetStoryContext: () => set({ genre: '', era: '', mood: '', keywords: '', outline: [] }),
+  resetStoryContext: () => set({ genre: '', characterFlaw: '', goal: '', conflict: '', bgmMood: '', outline: [] }),
 }))
