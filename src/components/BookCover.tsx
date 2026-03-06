@@ -4,7 +4,9 @@ interface BookCoverProps {
   genre: string
   era: string
   mood: string
+  title?: string
   size?: 'sm' | 'md' | 'lg'
+  imageUrl?: string
 }
 
 interface ColorScheme {
@@ -82,14 +84,66 @@ function getColors(genre: string): ColorScheme {
 }
 
 const SIZE_MAP = {
-  sm: { width: 80, height: 120, titleSize: '7px', subSize: '5.5px', emblemSize: '9px' },
-  md: { width: 140, height: 210, titleSize: '13px', subSize: '9px', emblemSize: '15px' },
-  lg: { width: 180, height: 270, titleSize: '16px', subSize: '11px', emblemSize: '19px' },
+  sm: { width: 80, height: 120, titleSize: '7px', bookTitleSize: '6.5px', subSize: '5.5px', emblemSize: '9px' },
+  md: { width: 140, height: 210, titleSize: '13px', bookTitleSize: '12px', subSize: '9px', emblemSize: '15px' },
+  lg: { width: 180, height: 270, titleSize: '16px', bookTitleSize: '15px', subSize: '11px', emblemSize: '19px' },
 }
 
-export default function BookCover({ genre, era, mood, size = 'md' }: BookCoverProps) {
+export default function BookCover({ genre, era, mood, title, size = 'md', imageUrl }: BookCoverProps) {
   const c = getColors(genre)
   const s = SIZE_MAP[size]
+
+  // AI 생성 이미지가 있을 때: 이미지 표지
+  if (imageUrl) {
+    return (
+      <div
+        style={{
+          width: s.width,
+          height: s.height,
+          borderRadius: 4,
+          boxShadow: `3px 4px 18px rgba(0,0,0,0.7), -2px 0 0 ${c.border}44`,
+          position: 'relative',
+          overflow: 'hidden',
+          flexShrink: 0,
+          userSelect: 'none',
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imageUrl}
+          alt={title ?? '소설 표지'}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+        {/* 제목 오버레이 */}
+        {title && (
+          <div style={{
+            position: 'absolute',
+            bottom: 0, left: 0, right: 0,
+            background: 'linear-gradient(transparent, rgba(0,0,0,0.82))',
+            padding: size === 'sm' ? '12px 6px 6px' : '24px 12px 12px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 3,
+          }}>
+            <div style={{ width: '60%', height: 1, background: c.accent, opacity: 0.6, marginBottom: 3 }} />
+            <span style={{
+              color: '#fff',
+              fontSize: s.bookTitleSize,
+              fontWeight: 'bold',
+              textAlign: 'center',
+              letterSpacing: '0.04em',
+              lineHeight: 1.35,
+              textShadow: '0 1px 6px rgba(0,0,0,0.9)',
+              wordBreak: 'keep-all',
+            }}>
+              {title}
+            </span>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div
@@ -133,20 +187,43 @@ export default function BookCover({ genre, era, mood, size = 'md' }: BookCoverPr
 
       {/* 중앙 텍스트 */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: size === 'sm' ? 2 : 5, textAlign: 'center' }}>
-        <span style={{ color: c.sub, fontSize: s.subSize, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-          {era}
-        </span>
-        <span style={{
-          color: c.text, fontSize: s.titleSize, fontWeight: 'bold',
-          letterSpacing: '0.05em', lineHeight: 1.3,
-          textShadow: `0 0 10px ${c.accent}66`,
-        }}>
-          {genre}
-        </span>
-        <div style={{ width: '60%', height: 1, background: c.border, opacity: 0.5 }} />
-        <span style={{ color: c.sub, fontSize: s.subSize, letterSpacing: '0.1em', fontStyle: 'italic' }}>
-          {mood}
-        </span>
+        {title ? (
+          <>
+            <span style={{ color: c.sub, fontSize: s.subSize, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+              {genre}
+            </span>
+            <div style={{ width: '60%', height: 1, background: c.border, opacity: 0.4 }} />
+            <span style={{
+              color: c.text, fontSize: s.bookTitleSize, fontWeight: 'bold',
+              letterSpacing: '0.04em', lineHeight: 1.35,
+              textShadow: `0 0 12px ${c.accent}88`,
+              wordBreak: 'keep-all',
+            }}>
+              {title}
+            </span>
+            <div style={{ width: '60%', height: 1, background: c.border, opacity: 0.4 }} />
+            <span style={{ color: c.sub, fontSize: s.subSize, letterSpacing: '0.1em', fontStyle: 'italic' }}>
+              {mood}
+            </span>
+          </>
+        ) : (
+          <>
+            <span style={{ color: c.sub, fontSize: s.subSize, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+              {era}
+            </span>
+            <span style={{
+              color: c.text, fontSize: s.titleSize, fontWeight: 'bold',
+              letterSpacing: '0.05em', lineHeight: 1.3,
+              textShadow: `0 0 10px ${c.accent}66`,
+            }}>
+              {genre}
+            </span>
+            <div style={{ width: '60%', height: 1, background: c.border, opacity: 0.5 }} />
+            <span style={{ color: c.sub, fontSize: s.subSize, letterSpacing: '0.1em', fontStyle: 'italic' }}>
+              {mood}
+            </span>
+          </>
+        )}
       </div>
 
       {/* 엠블럼 */}

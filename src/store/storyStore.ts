@@ -10,16 +10,18 @@ export interface Chapter {
 }
 
 export interface StoryContext {
-  genre: string;
-  characterFlaw: string;
-  goal: string;
-  conflict: string;
-  bgmMood: string;
+  atmosphere: string;
+  wound: string;
+  direction: string;
+  tension: string;
+  resonance: string;
 }
 
 interface StoryState extends StoryContext {
+  title: string;
   outline: Chapter[];
   setStoryContext: (ctx: StoryContext) => void;
+  setTitle: (title: string) => void;
   setOutline: (outline: Chapter[]) => void;
   updateChapterContent: (id: number, content: string) => void;
   updateChapterStatus: (id: number, status: Chapter['status']) => void;
@@ -27,13 +29,15 @@ interface StoryState extends StoryContext {
 }
 
 export const useStoryStore = create<StoryState>((set) => ({
-  genre: '',
-  characterFlaw: '',
-  goal: '',
-  conflict: '',
-  bgmMood: '',
+  atmosphere: '',
+  wound: '',
+  direction: '',
+  tension: '',
+  resonance: '',
+  title: '',
   outline: [],
   setStoryContext: (ctx) => set(ctx),
+  setTitle: (title) => set({ title }),
   setOutline: (outline) => set({ outline }),
   updateChapterContent: (id, content) =>
     set((state) => ({
@@ -43,5 +47,5 @@ export const useStoryStore = create<StoryState>((set) => ({
     set((state) => ({
       outline: state.outline.map((ch) => (ch.id === id ? { ...ch, status } : ch)),
     })),
-  resetStoryContext: () => set({ genre: '', characterFlaw: '', goal: '', conflict: '', bgmMood: '', outline: [] }),
+  resetStoryContext: () => set({ atmosphere: '', wound: '', direction: '', tension: '', resonance: '', title: '', outline: [] }),
 }))

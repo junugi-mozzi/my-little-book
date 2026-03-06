@@ -11,11 +11,11 @@ import { supabase } from '@/lib/supabase'
 import BookCover from '@/components/BookCover'
 
 const CONTEXT_LABELS = [
-  { key: 'genre', label: '세계와 분위기' },
-  { key: 'characterFlaw', label: '주인공의 흉터' },
-  { key: 'goal', label: '주인공의 열망' },
-  { key: 'conflict', label: '가로막는 운명' },
-  { key: 'bgmMood', label: '이야기의 선율' },
+  { key: 'atmosphere', label: '분위기/세계' },
+  { key: 'wound', label: '이야기의 상처' },
+  { key: 'direction', label: '이야기의 방향' },
+  { key: 'tension', label: '이야기의 긴장' },
+  { key: 'resonance', label: '독자의 울림' },
 ] as const
 
 const STATUS_MAP = {
@@ -32,6 +32,9 @@ export default function LongStoryPage() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedId, setSavedId] = useState<string | null>(null)
+  const [storyTitle, setStoryTitle] = useState<string>('')
+  const [coverUrl, setCoverUrl] = useState<string | null>(null)
+  const [coverLoading, setCoverLoading] = useState(false)
 
   const handleSave = async () => {
     if (outline.length === 0 || savedId || saving) return
@@ -39,13 +42,15 @@ export default function LongStoryPage() {
     const { data } = await supabase
       .from('library')
       .insert({
-        genre: store.genre,
-        era: store.characterFlaw,
-        mood: store.bgmMood,
-        keywords: `${store.goal} / ${store.conflict}`,
+        genre: store.atmosphere,
+        era: store.wound,
+        mood: store.resonance,
+        keywords: `${store.direction} / ${store.tension}`,
+        title: storyTitle || null,
         type: 'long',
         outline,
         user_id: user?.id ?? null,
+        cover_url: coverUrl ?? null,
       })
       .select('id')
       .single()
@@ -62,11 +67,11 @@ export default function LongStoryPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          genre: store.genre,
-          characterFlaw: store.characterFlaw,
-          goal: store.goal,
-          conflict: store.conflict,
-          bgmMood: store.bgmMood,
+          atmosphere: store.atmosphere,
+          wound: store.wound,
+          direction: store.direction,
+          tension: store.tension,
+          resonance: store.resonance,
           chapterId,
           chapterTitle: chapter.title,
           chapterSummary: chapter.summary,
@@ -84,8 +89,31 @@ export default function LongStoryPage() {
     }
   }
 
+  const fetchCover = async () => {
+    setCoverUrl(null)
+    setCoverLoading(true)
+    try {
+      const res = await fetch('/api/cover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          atmosphere: store.atmosphere,
+          wound: store.wound,
+          resonance: store.resonance,
+        }),
+      })
+      const data = await res.json()
+      if (data.imageUrl) setCoverUrl(data.imageUrl)
+    } catch {
+      // 표지 실패 시 CSS 표지 유지
+    } finally {
+      setCoverLoading(false)
+    }
+  }
+
   const handleGenerateOutline = async () => {
     setSavedId(null)
+    setCoverUrl(null)
     setLoading(true)
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -95,16 +123,19 @@ export default function LongStoryPage() {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          genre: store.genre,
-          characterFlaw: store.characterFlaw,
-          goal: store.goal,
-          conflict: store.conflict,
-          bgmMood: store.bgmMood,
+          atmosphere: store.atmosphere,
+          wound: store.wound,
+          direction: store.direction,
+          tension: store.tension,
+          resonance: store.resonance,
         }),
       })
       const data = await res.json()
       if (data.outline) {
         setOutline(data.outline)
+        setStoryTitle(data.title ?? '')
+        // 아웃라인 완성 후 표지 이미지 백그라운드 생성
+        fetchCover()
       }
     } catch {
       console.error('아웃라인 생성 실패')
@@ -179,7 +210,7 @@ export default function LongStoryPage() {
           <div className="relative p-8 pt-0">
             <motion.button
               onClick={handleGenerateOutline}
-              disabled={loading || !store.genre}
+              disabled={loading || !store.atmosphere}
               whileHover={{ scale: 1.02, boxShadow: '0 6px 20px rgba(0,0,0,0.4)' }}
               whileTap={{ scale: 0.98 }}
               className="w-full py-4 bg-[#d4b483] hover:bg-[#c6a165] text-[#3e2723] font-bold text-lg tracking-widest rounded border border-[#8d6e63] shadow-[0_4px_15px_rgba(0,0,0,0.35)] transition-colors disabled:opacity-50"
@@ -217,8 +248,18 @@ export default function LongStoryPage() {
               </div>
 
               {/* 책 표지 */}
-              <div className="flex justify-center py-2">
-                <BookCover genre={store.genre} era={store.characterFlaw} mood={store.bgmMood} size="md" />
+              <div className="flex flex-col items-center py-2 gap-3">
+                <div className="relative">
+                  <BookCover genre={store.atmosphere} era={store.wound} mood={store.resonance} title={storyTitle} size="md" imageUrl={coverUrl ?? undefined} />
+                  {coverLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded">
+                      <span className="text-[#d4b483] text-xs tracking-widest animate-pulse">표지 생성 중...</span>
+                    </div>
+                  )}
+                </div>
+                {storyTitle && (
+                  <p className="text-[#d4b483] text-base font-bold tracking-wide text-center">{storyTitle}</p>
+                )}
               </div>
 
               {outline.map((chapter, i) => (

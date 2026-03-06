@@ -11,11 +11,11 @@ import { supabase } from '@/lib/supabase'
 import BookCover from '@/components/BookCover'
 
 const CONTEXT_LABELS = [
-  { key: 'genre', label: '세계와 분위기' },
-  { key: 'characterFlaw', label: '주인공의 흉터' },
-  { key: 'goal', label: '주인공의 열망' },
-  { key: 'conflict', label: '가로막는 운명' },
-  { key: 'bgmMood', label: '이야기의 선율' },
+  { key: 'atmosphere', label: '분위기/세계' },
+  { key: 'wound', label: '이야기의 상처' },
+  { key: 'direction', label: '이야기의 방향' },
+  { key: 'tension', label: '이야기의 긴장' },
+  { key: 'resonance', label: '독자의 울림' },
 ] as const
 
 export default function ShortStoryPage() {
@@ -23,9 +23,12 @@ export default function ShortStoryPage() {
   const store = useStoryStore()
   const { user, session } = useAuthGuard()
   const [result, setResult] = useState<string>('')
+  const [storyTitle, setStoryTitle] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedId, setSavedId] = useState<string | null>(null)
+  const [coverUrl, setCoverUrl] = useState<string | null>(null)
+  const [coverLoading, setCoverLoading] = useState(false)
 
   const handleSave = async () => {
     if (!result || savedId || saving) return
@@ -33,13 +36,15 @@ export default function ShortStoryPage() {
     const { data } = await supabase
       .from('library')
       .insert({
-        genre: store.genre,
-        era: store.characterFlaw,
-        mood: store.bgmMood,
-        keywords: `${store.goal} / ${store.conflict}`,
+        genre: store.atmosphere,
+        era: store.wound,
+        mood: store.resonance,
+        keywords: `${store.direction} / ${store.tension}`,
+        title: storyTitle || null,
         type: 'short',
         content: result,
         user_id: user?.id ?? null,
+        cover_url: coverUrl ?? null,
       })
       .select('id')
       .single()
@@ -47,8 +52,31 @@ export default function ShortStoryPage() {
     setSaving(false)
   }
 
+  const fetchCover = async () => {
+    setCoverUrl(null)
+    setCoverLoading(true)
+    try {
+      const res = await fetch('/api/cover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          atmosphere: store.atmosphere,
+          wound: store.wound,
+          resonance: store.resonance,
+        }),
+      })
+      const data = await res.json()
+      if (data.imageUrl) setCoverUrl(data.imageUrl)
+    } catch {
+      // 표지 실패 시 CSS 표지 유지
+    } finally {
+      setCoverLoading(false)
+    }
+  }
+
   const handleGenerate = async () => {
     setSavedId(null)
+    setCoverUrl(null)
     setLoading(true)
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -58,15 +86,18 @@ export default function ShortStoryPage() {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          genre: store.genre,
-          characterFlaw: store.characterFlaw,
-          goal: store.goal,
-          conflict: store.conflict,
-          bgmMood: store.bgmMood,
+          atmosphere: store.atmosphere,
+          wound: store.wound,
+          direction: store.direction,
+          tension: store.tension,
+          resonance: store.resonance,
         }),
       })
       const data = await res.json()
       setResult(data.story ?? data.error ?? '생성 실패')
+      setStoryTitle(data.title ?? '')
+      // 소설 완성 후 표지 이미지 백그라운드 생성
+      fetchCover()
     } catch {
       setResult('서버 오류가 발생했습니다.')
     } finally {
@@ -150,7 +181,7 @@ export default function ShortStoryPage() {
           <div className="relative p-8 pt-0">
             <motion.button
               onClick={handleGenerate}
-              disabled={loading || !store.genre}
+              disabled={loading || !store.atmosphere}
               whileHover={{ scale: 1.02, boxShadow: '0 6px 20px rgba(0,0,0,0.4)' }}
               whileTap={{ scale: 0.98 }}
               className="w-full py-4 bg-[#8d6e63] hover:bg-[#795548] text-[#f4e4bc] font-bold text-lg tracking-widest rounded border border-[#5d4037] shadow-[0_4px_15px_rgba(0,0,0,0.35)] transition-colors disabled:opacity-50"
@@ -185,8 +216,18 @@ export default function ShortStoryPage() {
               </div>
 
               {/* 책 표지 */}
-              <div className="relative flex justify-center pt-8 pb-2">
-                <BookCover genre={store.genre} era={store.characterFlaw} mood={store.bgmMood} size="md" />
+              <div className="relative flex flex-col items-center pt-8 pb-2 gap-4">
+                <div className="relative">
+                  <BookCover genre={store.atmosphere} era={store.wound} mood={store.resonance} title={storyTitle} size="md" imageUrl={coverUrl ?? undefined} />
+                  {coverLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded">
+                      <span className="text-[#d4b483] text-xs tracking-widest animate-pulse">표지 생성 중...</span>
+                    </div>
+                  )}
+                </div>
+                {storyTitle && (
+                  <p className="text-[#5d4037] text-lg font-bold tracking-wide text-center px-4">{storyTitle}</p>
+                )}
               </div>
 
               {/* 본문 */}
