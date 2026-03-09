@@ -62,7 +62,10 @@ export default function ShortStoryPage() {
         body: JSON.stringify({
           atmosphere: store.atmosphere,
           wound: store.wound,
+          direction: store.direction,
+          tension: store.tension,
           resonance: store.resonance,
+          title: storyTitle,
         }),
       })
       const data = await res.json()

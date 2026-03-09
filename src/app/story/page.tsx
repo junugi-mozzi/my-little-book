@@ -420,7 +420,7 @@ export default function StoryPage() {
                       onChange={(e) => setInput(e.target.value)}
                       disabled={isLoading || isTyping || isFlipped}
                       placeholder={isLoading ? '루미스가 이야기를 듣고 있습니다...' : isTyping ? '루미스가 말하고 있습니다...' : '잉크를 찍어 답변을 적어주세요...'}
-                      className="w-full bg-transparent border-b-2 border-[#8d6e63] px-4 py-3 text-xl text-[#3e2723] focus:outline-none focus:border-[#5d4037] transition-colors placeholder-[#a1887f] disabled:opacity-50"
+                      className="w-full bg-transparent border-b-2 border-[#8d6e63] pl-4 pr-20 py-3 text-xl text-[#3e2723] focus:outline-none focus:border-[#5d4037] transition-colors placeholder-[#a1887f] disabled:opacity-50"
                     />
                     {!isLoading && !isTyping && !isFlipped && (
                       <button type="submit" className="absolute right-0 bottom-3 text-[#5d4037] hover:text-[#3e2723] font-bold px-4">

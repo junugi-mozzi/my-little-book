@@ -99,7 +99,10 @@ export default function LongStoryPage() {
         body: JSON.stringify({
           atmosphere: store.atmosphere,
           wound: store.wound,
+          direction: store.direction,
+          tension: store.tension,
           resonance: store.resonance,
+          title: storyTitle,
         }),
       })
       const data = await res.json()
@@ -262,7 +265,10 @@ export default function LongStoryPage() {
                 )}
               </div>
 
-              {outline.map((chapter, i) => (
+              {outline.map((chapter, i) => {
+                const prevChapter = i > 0 ? outline[i - 1] : null
+                const isBlocked = prevChapter !== null && prevChapter.status !== 'completed'
+                return (
                 <motion.div
                   key={chapter.id}
                   initial={{ opacity: 0, y: 18 }}
@@ -301,12 +307,12 @@ export default function LongStoryPage() {
 
                       <motion.button
                         onClick={() => handleGenerateChapter(chapter.id)}
-                        disabled={chapter.status === 'generating' || chapter.status === 'completed'}
+                        disabled={chapter.status === 'generating' || chapter.status === 'completed' || isBlocked}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         className="self-end px-5 py-2 bg-[#8d6e63] hover:bg-[#795548] text-[#f4e4bc] text-sm rounded border border-[#5d4037] transition-colors disabled:opacity-40 tracking-widest"
                       >
-                        {chapter.status === 'generating' ? '집필 중...' : chapter.status === 'completed' ? '✦ 완성됨' : '이 챕터 집필하기'}
+                        {isBlocked ? '🔒 이전 챕터 먼저' : chapter.status === 'generating' ? '집필 중...' : chapter.status === 'completed' ? '✦ 완성됨' : '이 챕터 집필하기'}
                       </motion.button>
 
                       {/* 완성된 챕터 본문 */}
@@ -324,7 +330,7 @@ export default function LongStoryPage() {
                     </div>
                   </div>
                 </motion.div>
-              ))}
+              )})}
 
               {/* 저장 버튼 */}
               <div className="flex justify-end pt-2">

@@ -178,6 +178,8 @@ function PageContent({ page, side, story, generatingChapterId, onGenerate }: Pag
 
   if (page.kind === 'pending') {
     const isGenerating = generatingChapterId === page.chapterId
+    const prevChapter = story.outline?.find(c => c.id === page.chapterId - 1)
+    const isBlocked = page.chapterId > 1 && prevChapter?.status !== 'completed'
     return (
       <div className="absolute inset-0 bg-[#f4e4bc] flex flex-col items-center justify-center">
         {textureOverlay}
@@ -187,27 +189,39 @@ function PageContent({ page, side, story, generatingChapterId, onGenerate }: Pag
             <span className="text-[#d4b483] text-xs">✦</span>
             <div className="flex-1 h-px bg-[#d4b483]" />
           </div>
-          <span className="text-4xl opacity-25">✒</span>
+          <span className="text-4xl opacity-25">{isBlocked ? '🔒' : '✒'}</span>
           <p className="text-[#8d6e63] text-sm italic leading-relaxed">
-            이 챕터는 아직 집필되지 않았습니다.
-            <br />
-            <span className="text-[10px]">양피지가 비어 있습니다...</span>
+            {isBlocked ? (
+              <>
+                이전 챕터를 먼저 완성해 주세요.
+                <br />
+                <span className="text-[10px]">순서대로 이야기를 엮어야 합니다...</span>
+              </>
+            ) : (
+              <>
+                이 챕터는 아직 집필되지 않았습니다.
+                <br />
+                <span className="text-[10px]">양피지가 비어 있습니다...</span>
+              </>
+            )}
           </p>
           <p className="text-[#a1887f] text-[11px]">
             제{page.chapterId}장 · {page.chapterTitle}
           </p>
-          <button
-            onClick={() => onGenerate(page.chapterId)}
-            disabled={generatingChapterId !== null}
-            className="px-5 py-2.5 bg-[#8d6e63] hover:bg-[#795548] text-[#f4e4bc] text-xs rounded border border-[#5d4037] tracking-widest transition-colors disabled:opacity-40 flex items-center gap-2"
-          >
-            {isGenerating ? (
-              <>
-                <span className="w-3 h-3 border border-[#f4e4bc]/40 border-t-[#f4e4bc] rounded-full animate-spin inline-block" />
-                집필 중...
-              </>
-            ) : '✒ 이 챕터 집필하기'}
-          </button>
+          {!isBlocked && (
+            <button
+              onClick={() => onGenerate(page.chapterId)}
+              disabled={generatingChapterId !== null}
+              className="px-5 py-2.5 bg-[#8d6e63] hover:bg-[#795548] text-[#f4e4bc] text-xs rounded border border-[#5d4037] tracking-widest transition-colors disabled:opacity-40 flex items-center gap-2"
+            >
+              {isGenerating ? (
+                <>
+                  <span className="w-3 h-3 border border-[#f4e4bc]/40 border-t-[#f4e4bc] rounded-full animate-spin inline-block" />
+                  집필 중...
+                </>
+              ) : '✒ 이 챕터 집필하기'}
+            </button>
+          )}
           <div className="flex items-center gap-3 w-full opacity-40">
             <div className="flex-1 h-px bg-[#d4b483]" />
             <span className="text-[#d4b483] text-xs">✦</span>
@@ -271,6 +285,10 @@ export default function LibraryPage() {
   const [selected, setSelected] = useState<Story | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
+
+  // 필터 / 정렬
+  const [typeFilter, setTypeFilter] = useState<'all' | 'short' | 'long'>('all')
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
 
   // 챕터 생성 상태 (장편)
   const [generatingChapterId, setGeneratingChapterId] = useState<number | null>(null)
@@ -533,9 +551,18 @@ export default function LibraryPage() {
     setFlipperBack(null)
   }
 
-  // ── 서가 데이터 ──────────────────────────────────────────────────────────
-  const shortStories = stories.filter(s => s.type === 'short')
-  const longStories  = stories.filter(s => s.type === 'long')
+  // ── 서가 데이터 (정렬 + 필터) ────────────────────────────────────────────
+  const sortedStories = useMemo(() => {
+    const arr = [...stories]
+    arr.sort((a, b) => {
+      const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      return sortOrder === 'newest' ? diff : -diff
+    })
+    return arr
+  }, [stories, sortOrder])
+
+  const shortStories = typeFilter !== 'long'  ? sortedStories.filter(s => s.type === 'short') : []
+  const longStories  = typeFilter !== 'short' ? sortedStories.filter(s => s.type === 'long')  : []
 
   const renderShelf = (shelfStories: Story[], label: string) => (
     <div className="space-y-2">
@@ -679,6 +706,44 @@ export default function LibraryPage() {
           <p className="text-sm text-[#a1887f] tracking-wider">엮어낸 이야기들이 잠들어 있다</p>
         </motion.div>
 
+        {/* 필터 / 정렬 바 */}
+        {!loading && stories.length > 0 && (
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            {/* 유형 필터 */}
+            <div className="flex items-center gap-1.5">
+              {(['all', 'short', 'long'] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setTypeFilter(v)}
+                  className={`px-3 py-1 text-[10px] rounded border tracking-widest transition-colors ${
+                    typeFilter === v
+                      ? 'bg-[#8d6e63] text-[#f4e4bc] border-[#5d4037]'
+                      : 'text-[#a1887f] border-[#5d4037]/30 hover:border-[#8d6e63]/60 hover:text-[#d4b483]'
+                  }`}
+                >
+                  {v === 'all' ? '전체' : v === 'short' ? '단편' : '장편'}
+                </button>
+              ))}
+            </div>
+            {/* 정렬 */}
+            <div className="flex items-center gap-1.5">
+              {(['newest', 'oldest'] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setSortOrder(v)}
+                  className={`px-3 py-1 text-[10px] rounded border tracking-widest transition-colors ${
+                    sortOrder === v
+                      ? 'bg-[#5d4037]/60 text-[#d4b483] border-[#8d6e63]/50'
+                      : 'text-[#a1887f] border-[#5d4037]/30 hover:border-[#8d6e63]/60 hover:text-[#d4b483]'
+                  }`}
+                >
+                  {v === 'newest' ? '최신순' : '오래된순'}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* 로딩 */}
         {loading && (
           <div className="flex flex-col items-center py-16 gap-4">
@@ -718,8 +783,8 @@ export default function LibraryPage() {
             transition={{ delay: 0.2 }}
             className="space-y-14"
           >
-            {renderShelf(shortStories, '단편 서가')}
-            {renderShelf(longStories, '장편 서가')}
+            {typeFilter !== 'long'  && renderShelf(shortStories, '단편 서가')}
+            {typeFilter !== 'short' && renderShelf(longStories,  '장편 서가')}
           </motion.div>
         )}
 
