@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       contents,
       config: {
         systemInstruction: SYSTEM_PROMPT,
-        thinkingConfig: { thinkingBudget: 512 },
+        thinkingConfig: { thinkingBudget: 1024 },
       },
     })
 

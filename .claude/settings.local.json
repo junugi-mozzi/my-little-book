@@ -12,7 +12,11 @@
       "mcp__supabase__list_tables",
       "mcp__supabase__apply_migration",
       "mcp__supabase__execute_sql",
-      "Bash(npm install @google/generative-ai)"
+      "Bash(npm install @google/generative-ai)",
+      "Bash(npx next build)",
+      "mcp__supabase__restore_project",
+      "Bash(mkdir -p \"c:/Users/나비/Desktop/프로젝트-준혁/my-little-book/src/app/story/[id]\")",
+      "Bash(mkdir -p \"c:/Users/나비/Desktop/프로젝트-준혁/my-little-book/src/app/explore\")"
     ]
   },
   "enableAllProjectMcpServers": true,

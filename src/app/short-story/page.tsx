@@ -40,15 +40,18 @@ export default function ShortStoryPage() {
         era: store.wound,
         mood: store.resonance,
         keywords: `${store.direction} / ${store.tension}`,
-        title: storyTitle || null,
+        title: storyTitle.trim() || null,
         type: 'short',
         content: result,
         user_id: user?.id ?? null,
         cover_url: coverUrl ?? null,
+        is_public: false,
       })
       .select('id')
       .single()
-    if (data?.id) setSavedId(data.id)
+    if (data?.id) {
+      setSavedId(data.id)
+    }
     setSaving(false)
   }
 
@@ -132,13 +135,13 @@ export default function ShortStoryPage() {
 
         {/* 뒤로가기 */}
         <motion.button
-          onClick={() => router.push('/')}
+          onClick={() => router.push('/story')}
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.1 }}
           className="text-[#d4b483]/60 hover:text-[#d4b483] transition-colors text-sm tracking-widest flex items-center gap-2"
         >
-          ← 별빛 도서관으로
+          ← 이야기 선택으로
         </motion.button>
 
         {/* 메인 양피지 카드 */}
@@ -241,21 +244,23 @@ export default function ShortStoryPage() {
               </div>
 
               {/* 저장 버튼 */}
-              <div className="relative px-8 pb-8 flex justify-end border-t border-[#d4b483]/30 pt-5">
+              <div className="relative px-8 pb-8 border-t border-[#d4b483]/30 pt-5">
                 {savedId ? (
                   <span className="text-[#8d6e63] text-sm tracking-widest flex items-center gap-2">
-                    ✦ 서재에 저장되었습니다
+                    ✦ 서재에 저장되었습니다 — 나의 서재에서 공개 설정을 변경할 수 있습니다
                   </span>
                 ) : (
-                  <motion.button
-                    onClick={handleSave}
-                    disabled={saving}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="px-6 py-2.5 bg-[#8d6e63] hover:bg-[#795548] text-[#f4e4bc] text-sm rounded border border-[#5d4037] tracking-widest transition-colors disabled:opacity-50"
-                  >
-                    {saving ? '저장 중...' : '📚 서재에 저장하기'}
-                  </motion.button>
+                  <div className="flex items-center justify-end">
+                    <motion.button
+                      onClick={handleSave}
+                      disabled={saving}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="px-6 py-2.5 bg-[#8d6e63] hover:bg-[#795548] text-[#f4e4bc] text-sm rounded border border-[#5d4037] tracking-widest transition-colors disabled:opacity-50"
+                    >
+                      {saving ? '저장 중...' : '📚 서재에 저장하기'}
+                    </motion.button>
+                  </div>
                 )}
               </div>
             </motion.div>

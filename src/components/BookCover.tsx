@@ -5,7 +5,7 @@ interface BookCoverProps {
   era: string
   mood: string
   title?: string
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'full'
   imageUrl?: string
 }
 
@@ -91,6 +91,65 @@ const SIZE_MAP = {
 
 export default function BookCover({ genre, era, mood, title, size = 'md', imageUrl }: BookCoverProps) {
   const c = getColors(genre)
+
+  // full 사이즈: 부모 컨테이너를 꽉 채우는 full-bleed 표지
+  if (size === 'full') {
+    if (imageUrl) {
+      return (
+        <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={imageUrl} alt={title ?? '소설 표지'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          {title && (
+            <div style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              background: 'linear-gradient(transparent, rgba(0,0,0,0.88))',
+              padding: '48px 24px 28px',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+            }}>
+              <div style={{ width: '50%', height: 1, background: c.accent, opacity: 0.7, marginBottom: 4 }} />
+              <span style={{ color: '#fff', fontSize: '18px', fontWeight: 'bold', textAlign: 'center', letterSpacing: '0.05em', lineHeight: 1.4, textShadow: '0 2px 8px rgba(0,0,0,0.9)', wordBreak: 'keep-all' }}>
+                {title}
+              </span>
+            </div>
+          )}
+        </div>
+      )
+    }
+    // 이미지 없을 때 전체 채우는 그라데이션 표지
+    return (
+      <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(160deg, ${c.from}, ${c.to})`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '32px 24px', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse 70% 50% at 30% 20%, ${c.accent}18, transparent)`, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: `repeating-linear-gradient(90deg, transparent, transparent 6px, ${c.border}08 6px, ${c.border}08 7px)`, pointerEvents: 'none' }} />
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, width: '100%', opacity: 0.6 }}>
+          <div style={{ flex: 1, height: 1, background: c.accent }} />
+          <span style={{ color: c.accent, fontSize: '22px' }}>✦</span>
+          <div style={{ flex: 1, height: 1, background: c.accent }} />
+        </div>
+        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
+          <span style={{ color: c.sub, fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase' }}>{genre}</span>
+          <div style={{ width: '60%', height: 1, background: c.border, opacity: 0.4 }} />
+          {title ? (
+            <span style={{ color: c.text, fontSize: '22px', fontWeight: 'bold', letterSpacing: '0.04em', lineHeight: 1.4, textShadow: `0 0 20px ${c.accent}99`, wordBreak: 'keep-all' }}>{title}</span>
+          ) : (
+            <span style={{ color: c.text, fontSize: '22px', fontWeight: 'bold', letterSpacing: '0.05em', lineHeight: 1.3, textShadow: `0 0 20px ${c.accent}66` }}>{genre}</span>
+          )}
+          <div style={{ width: '60%', height: 1, background: c.border, opacity: 0.4 }} />
+          <span style={{ color: c.sub, fontSize: '11px', letterSpacing: '0.12em', fontStyle: 'italic' }}>{mood}</span>
+        </div>
+        <div style={{ position: 'relative', display: 'flex', gap: 10, opacity: 0.5 }}>
+          <span style={{ color: c.accent, fontSize: '18px' }}>✦</span>
+          <span style={{ color: c.accent, fontSize: '18px' }}>✧</span>
+          <span style={{ color: c.accent, fontSize: '18px' }}>✦</span>
+        </div>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, width: '100%', opacity: 0.6 }}>
+          <div style={{ flex: 1, height: 1, background: c.accent }} />
+          <span style={{ color: c.accent, fontSize: '22px' }}>✦</span>
+          <div style={{ flex: 1, height: 1, background: c.accent }} />
+        </div>
+      </div>
+    )
+  }
+
   const s = SIZE_MAP[size]
 
   // AI 생성 이미지가 있을 때: 이미지 표지

@@ -132,7 +132,7 @@ export default function MedievalHero({ onEnter }: MedievalHeroProps) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.4 } }}
       transition={{ duration: 0.6 }}
-      className="relative w-full min-h-screen overflow-hidden bg-[#1a1412] flex flex-col items-center justify-center text-center px-4 font-serif"
+      className="relative w-full min-h-screen overflow-hidden bg-[#1a1412] flex flex-col items-center text-center px-4 font-serif justify-start pt-[1vh]"
       onMouseMove={handleMouseMove}
     >
       {/* 별가루 파티클 */}
@@ -165,15 +165,20 @@ export default function MedievalHero({ onEnter }: MedievalHeroProps) {
       {/* 상단 가장자리 어두운 비네트 */}
       <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#0e0a08] to-transparent pointer-events-none" />
 
-      {/* 상단 장식 룬 */}
-      <div className="absolute top-7 left-1/2 -translate-x-1/2 flex items-center gap-4 opacity-45">
-        <div className="w-28 h-px bg-[#d4b483]" />
-        <span className="text-[#d4b483] text-sm tracking-[0.5em]">✦</span>
-        <div className="w-28 h-px bg-[#d4b483]" />
-      </div>
-
       {/* ── 메인 텍스트 영역 ── */}
-      <div className="z-10 flex flex-col items-center max-w-2xl pb-44">
+      <div className="z-20 flex flex-col items-center max-w-2xl pb-8">
+
+        {/* 상단 장식 룬 */}
+        <motion.div
+          initial="hidden"
+          animate="show"
+          variants={FADE_IN}
+          className="mb-4 flex items-center gap-3 opacity-45"
+        >
+          <div className="w-16 h-px bg-[#d4b483]" />
+          <span className="text-[#d4b483] text-xs tracking-[0.5em]">✦</span>
+          <div className="w-16 h-px bg-[#d4b483]" />
+        </motion.div>
 
         {/* 태그라인 뱃지 */}
         <motion.div
@@ -240,23 +245,31 @@ export default function MedievalHero({ onEnter }: MedievalHeroProps) {
           transition={{ delay: 0.6 }}
           className="mt-10"
         >
-          <motion.button
-            onClick={onEnter}
-            whileHover={{
-              scale: 1.04,
-              boxShadow: '0 0 30px rgba(212,180,131,0.22)',
-            }}
-            whileTap={{ scale: 0.97 }}
-            className="px-10 py-4 bg-[#8d6e63] hover:bg-[#795548] border border-[#5d4037] text-[#f4e4bc] text-lg font-bold tracking-[0.18em] shadow-[0_4px_22px_rgba(0,0,0,0.65)] transition-colors rounded-sm"
-          >
-            나의 책장을 열다
-          </motion.button>
+          <div className="flex flex-col items-center gap-3">
+            <motion.button
+              onClick={onEnter}
+              whileHover={{
+                scale: 1.04,
+                boxShadow: '0 0 30px rgba(212,180,131,0.22)',
+              }}
+              whileTap={{ scale: 0.97 }}
+              className="px-10 py-4 bg-[#8d6e63] hover:bg-[#795548] border border-[#5d4037] text-[#f4e4bc] text-lg font-bold tracking-[0.18em] shadow-[0_4px_22px_rgba(0,0,0,0.65)] transition-colors rounded-sm"
+            >
+              나의 책장을 열다
+            </motion.button>
+            <Link
+              href="/explore"
+              className="px-6 py-2 border border-[#8d6e63]/40 hover:border-[#d4b483]/60 hover:bg-[#3e2723]/50 text-[#a1887f] hover:text-[#d4b483] text-sm tracking-[0.2em] transition-all rounded-sm"
+            >
+              ✦ 이야기 광장 입장하기
+            </Link>
+          </div>
         </motion.div>
       </div>
 
       {/* ── 하단 이미지 마키 ── */}
       <div
-        className="absolute bottom-0 left-0 w-full h-[40%] pointer-events-none overflow-hidden"
+        className="relative w-full -mt-10 h-[38vh] pointer-events-none overflow-hidden"
         style={{
           maskImage: 'linear-gradient(to bottom, transparent 0%, black 28%, black 78%, transparent 100%)',
           WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 28%, black 78%, transparent 100%)',
@@ -286,13 +299,13 @@ export default function MedievalHero({ onEnter }: MedievalHeroProps) {
       </div>
 
       {/* 하단 약관 링크 + 라틴어 장식 */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 z-10">
-        <div className="flex items-center gap-3 opacity-20">
+      <div className="relative w-full py-6 flex flex-col items-center gap-1.5 z-20">
+        <div className="flex items-center gap-3 opacity-30">
           <div className="w-14 h-px bg-[#d4b483]" />
           <span className="text-[#d4b483] text-[10px] tracking-[0.35em] uppercase">Liber Stellarum</span>
           <div className="w-14 h-px bg-[#d4b483]" />
         </div>
-        <div className="flex items-center gap-3 opacity-35">
+        <div className="flex items-center gap-3 opacity-60">
           <Link href="/terms" className="text-[#d4b483] text-[10px] tracking-widest hover:opacity-70 transition-opacity">이용약관</Link>
           <span className="text-[#d4b483]/40 text-[10px]">·</span>
           <Link href="/privacy" className="text-[#d4b483] text-[10px] tracking-widest hover:opacity-70 transition-opacity">개인정보처리방침</Link>

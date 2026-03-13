@@ -35,6 +35,7 @@ export default function LongStoryPage() {
   const [storyTitle, setStoryTitle] = useState<string>('')
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
   const [coverLoading, setCoverLoading] = useState(false)
+  const [outlineError, setOutlineError] = useState<string | null>(null)
 
   const handleSave = async () => {
     if (outline.length === 0 || savedId || saving) return
@@ -46,15 +47,18 @@ export default function LongStoryPage() {
         era: store.wound,
         mood: store.resonance,
         keywords: `${store.direction} / ${store.tension}`,
-        title: storyTitle || null,
+        title: storyTitle.trim() || null,
         type: 'long',
         outline,
         user_id: user?.id ?? null,
         cover_url: coverUrl ?? null,
+        is_public: false,
       })
       .select('id')
       .single()
-    if (data?.id) setSavedId(data.id)
+    if (data?.id) {
+      setSavedId(data.id)
+    }
     setSaving(false)
   }
 
@@ -135,13 +139,16 @@ export default function LongStoryPage() {
       })
       const data = await res.json()
       if (data.outline) {
+        setOutlineError(null)
         setOutline(data.outline)
         setStoryTitle(data.title ?? '')
         // 아웃라인 완성 후 표지 이미지 백그라운드 생성
         fetchCover()
+      } else {
+        setOutlineError(data.error ?? '아웃라인 생성에 실패했습니다. 다시 시도해주세요.')
       }
     } catch {
-      console.error('아웃라인 생성 실패')
+      setOutlineError('서버 오류가 발생했습니다. 다시 시도해주세요.')
     } finally {
       setLoading(false)
     }
@@ -161,13 +168,13 @@ export default function LongStoryPage() {
 
         {/* 뒤로가기 */}
         <motion.button
-          onClick={() => router.push('/')}
+          onClick={() => router.push('/story')}
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.1 }}
           className="text-[#d4b483]/60 hover:text-[#d4b483] transition-colors text-sm tracking-widest flex items-center gap-2"
         >
-          ← 별빛 도서관으로
+          ← 이야기 선택으로
         </motion.button>
 
         {/* 입력 + 생성 양피지 카드 */}
@@ -220,6 +227,9 @@ export default function LongStoryPage() {
             >
               ✨ 이야기 생성하기
             </motion.button>
+            {outlineError && (
+              <p className="mt-3 text-red-400/80 text-sm text-center tracking-wide">{outlineError}</p>
+            )}
           </div>
         </motion.div>
 
@@ -333,21 +343,23 @@ export default function LongStoryPage() {
               )})}
 
               {/* 저장 버튼 */}
-              <div className="flex justify-end pt-2">
+              <div className="flex items-center justify-between flex-wrap gap-3 pt-2">
                 {savedId ? (
                   <span className="text-[#8d6e63] text-sm tracking-widest flex items-center gap-2">
-                    ✦ 서재에 저장되었습니다
+                    ✦ 서재에 저장되었습니다 — 나의 서재에서 공개 설정을 변경할 수 있습니다
                   </span>
                 ) : (
-                  <motion.button
-                    onClick={handleSave}
-                    disabled={saving}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="px-6 py-2.5 bg-[#d4b483] hover:bg-[#c6a165] text-[#3e2723] text-sm font-semibold rounded border border-[#8d6e63] tracking-widest transition-colors disabled:opacity-50"
-                  >
-                    {saving ? '저장 중...' : '📚 서재에 저장하기'}
-                  </motion.button>
+                  <div className="flex items-center justify-end w-full">
+                    <motion.button
+                      onClick={handleSave}
+                      disabled={saving}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="px-6 py-2.5 bg-[#d4b483] hover:bg-[#c6a165] text-[#3e2723] text-sm font-semibold rounded border border-[#8d6e63] tracking-widest transition-colors disabled:opacity-50"
+                    >
+                      {saving ? '저장 중...' : '📚 서재에 저장하기'}
+                    </motion.button>
+                  </div>
                 )}
               </div>
 

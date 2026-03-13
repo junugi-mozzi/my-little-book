@@ -46,8 +46,10 @@ export async function POST(req: NextRequest) {
     })
     const raw = response.text ?? ''
     const parsed = JSON.parse(raw)
-    const chapters: Chapter[] = parsed.outline.map((c: Omit<Chapter, 'status'>) => ({
-      ...c,
+    const chapters: Chapter[] = (parsed.outline ?? []).map((c: Record<string, unknown>, i: number) => ({
+      id: typeof c.id === 'number' ? c.id : i + 1,
+      title: typeof c.title === 'string' ? c.title : `챕터 ${i + 1}`,
+      summary: typeof c.summary === 'string' ? c.summary : '',
       status: 'pending' as const,
     }))
     return NextResponse.json({ outline: chapters, title: parsed.title ?? '' })

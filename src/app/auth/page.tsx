@@ -3,7 +3,7 @@
 
 import { motion } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
@@ -31,10 +31,25 @@ const PARTICLES = [
 export default function AuthPage() {
   const { user, loading, signInWithGoogle } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [agreed, setAgreed] = useState(false)
 
+  // redirect 파라미터를 localStorage에 저장
   useEffect(() => {
-    if (!loading && user) router.push('/')
+    const redirect = searchParams.get('redirect')
+    if (redirect) localStorage.setItem('auth_redirect', redirect)
+  }, [searchParams])
+
+  useEffect(() => {
+    if (!loading && user) {
+      const redirect = localStorage.getItem('auth_redirect')
+      if (redirect) {
+        localStorage.removeItem('auth_redirect')
+        router.push(redirect)
+      } else {
+        router.push('/')
+      }
+    }
   }, [user, loading, router])
 
   return (

@@ -3,11 +3,16 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { useAuthGuard } from '@/hooks/useAuthGuard'
 import { supabase } from '@/lib/supabase'
 import BookCover from '@/components/BookCover'
+import ShareFAB from '@/components/ShareFAB'
 import { useBGMStore } from '@/store/bgmStore'
+import type { LibraryBookReaderHandle } from '@/components/LibraryBookReader'
+
+const DynamicBookReader = dynamic(() => import('@/components/LibraryBookReader'), { ssr: false })
 
 // ── 타입 정의 ────────────────────────────────────────────────────────────────
 
@@ -23,10 +28,13 @@ interface Story {
   content: string | null
   outline: { id: number; title: string; summary: string; status: string; content?: string }[] | null
   cover_url?: string | null
+  is_public: boolean
+  view_count: number
 }
 
 type BookPage =
   | { kind: 'cover' }
+  | { kind: 'synopsis' }
   | { kind: 'chapter-title'; chapterId: number; chapterTitle: string; summary: string }
   | { kind: 'pending'; chapterId: number; chapterTitle: string }
   | { kind: 'text'; text: string; pageNum: number; totalPages: number; chapterLabel?: string }
@@ -52,7 +60,7 @@ function paginateText(text: string, charsPerPage: number): string[] {
 }
 
 function prepareBookPages(story: Story, charsPerPage: number): BookPage[] {
-  const pages: BookPage[] = [{ kind: 'cover' }]
+  const pages: BookPage[] = [{ kind: 'cover' }, { kind: 'synopsis' }]
   if (story.type === 'short') {
     paginateText(story.content ?? '', charsPerPage).forEach((text, i, arr) =>
       pages.push({ kind: 'text', text, pageNum: i + 1, totalPages: arr.length })
@@ -78,201 +86,6 @@ function prepareBookPages(story: Story, charsPerPage: number): BookPage[] {
   return pages
 }
 
-// ── PageContent 컴포넌트 ─────────────────────────────────────────────────────
-
-interface PageContentProps {
-  page: BookPage | null
-  side: 'left' | 'right'
-  story: Story
-  generatingChapterId: number | null
-  onGenerate: (chapterId: number) => void
-}
-
-function PageContent({ page, side, story, generatingChapterId, onGenerate }: PageContentProps) {
-  const textureOverlay = (
-    <div
-      className="absolute inset-0 opacity-[0.17] pointer-events-none"
-      style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/old-wall.png')" }}
-    />
-  )
-
-  if (!page || page.kind === 'blank') {
-    return (
-      <div className="absolute inset-0 bg-[#f4e4bc]">
-        {textureOverlay}
-        <div className="flex-1 h-full flex items-center justify-center opacity-15">
-          <span className="text-[#8d6e63] text-lg tracking-[0.3em]">✦</span>
-        </div>
-      </div>
-    )
-  }
-
-  if (page.kind === 'cover') {
-    return (
-      <div
-        className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6"
-        style={{ background: 'linear-gradient(160deg, #2d1a08, #100900)' }}
-      >
-        {textureOverlay}
-        <div className="relative flex flex-col items-center gap-4">
-          <BookCover
-            genre={story.genre}
-            era={story.era}
-            mood={story.mood}
-            title={story.title ?? undefined}
-            size="lg"
-            imageUrl={story.cover_url ?? undefined}
-          />
-          {story.title && (
-            <p className="text-[#d4b483] text-sm font-bold tracking-wider text-center mt-1">
-              {story.title}
-            </p>
-          )}
-          <p className="text-[#8d6e63] text-[10px] leading-relaxed text-center px-2 max-w-[160px]">
-            {story.type === 'short'
-              ? (story.content ?? '').slice(0, 80) + ((story.content?.length ?? 0) > 80 ? '...' : '')
-              : (story.outline?.[0]?.summary ?? story.keywords)
-            }
-          </p>
-          <div className="flex items-center gap-3 opacity-40 mt-2">
-            <div className="w-8 h-px bg-[#d4b483]" />
-            <span className="text-[#d4b483] text-[10px]">✦</span>
-            <div className="w-8 h-px bg-[#d4b483]" />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (page.kind === 'chapter-title') {
-    return (
-      <div className="absolute inset-0 bg-[#f4e4bc] flex flex-col items-center justify-center">
-        {textureOverlay}
-        <div className="relative flex flex-col items-center gap-4 px-8 text-center">
-          <div className="flex items-center gap-3 w-full opacity-45">
-            <div className="flex-1 h-px bg-[#d4b483]" />
-            <span className="text-[#d4b483] text-xs">✦</span>
-            <div className="flex-1 h-px bg-[#d4b483]" />
-          </div>
-          <div className="flex flex-col items-center gap-0">
-            <span className="text-[10px] text-[#a1887f] tracking-[0.4em] uppercase">제</span>
-            <span className="text-5xl font-bold text-[#8d6e63] leading-none">{page.chapterId}</span>
-            <span className="text-[10px] text-[#a1887f] tracking-[0.4em] uppercase">장</span>
-          </div>
-          <h3 className="text-lg font-bold text-[#5d4037] tracking-wide leading-snug">
-            {page.chapterTitle}
-          </h3>
-          <div className="w-16 h-px bg-[#d4b483]/50" />
-          <p className="text-[#8d6e63] text-xs italic leading-relaxed px-2">
-            {page.summary}
-          </p>
-          <div className="flex items-center gap-3 w-full opacity-45 mt-2">
-            <div className="flex-1 h-px bg-[#d4b483]" />
-            <span className="text-[#d4b483] text-xs">✦</span>
-            <div className="flex-1 h-px bg-[#d4b483]" />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (page.kind === 'pending') {
-    const isGenerating = generatingChapterId === page.chapterId
-    const prevChapter = story.outline?.find(c => c.id === page.chapterId - 1)
-    const isBlocked = page.chapterId > 1 && prevChapter?.status !== 'completed'
-    return (
-      <div className="absolute inset-0 bg-[#f4e4bc] flex flex-col items-center justify-center">
-        {textureOverlay}
-        <div className="relative flex flex-col items-center gap-5 px-8 text-center">
-          <div className="flex items-center gap-3 w-full opacity-40">
-            <div className="flex-1 h-px bg-[#d4b483]" />
-            <span className="text-[#d4b483] text-xs">✦</span>
-            <div className="flex-1 h-px bg-[#d4b483]" />
-          </div>
-          <span className="text-4xl opacity-25">{isBlocked ? '🔒' : '✒'}</span>
-          <p className="text-[#8d6e63] text-sm italic leading-relaxed">
-            {isBlocked ? (
-              <>
-                이전 챕터를 먼저 완성해 주세요.
-                <br />
-                <span className="text-[10px]">순서대로 이야기를 엮어야 합니다...</span>
-              </>
-            ) : (
-              <>
-                이 챕터는 아직 집필되지 않았습니다.
-                <br />
-                <span className="text-[10px]">양피지가 비어 있습니다...</span>
-              </>
-            )}
-          </p>
-          <p className="text-[#a1887f] text-[11px]">
-            제{page.chapterId}장 · {page.chapterTitle}
-          </p>
-          {!isBlocked && (
-            <button
-              onClick={() => onGenerate(page.chapterId)}
-              disabled={generatingChapterId !== null}
-              className="px-5 py-2.5 bg-[#8d6e63] hover:bg-[#795548] text-[#f4e4bc] text-xs rounded border border-[#5d4037] tracking-widest transition-colors disabled:opacity-40 flex items-center gap-2"
-            >
-              {isGenerating ? (
-                <>
-                  <span className="w-3 h-3 border border-[#f4e4bc]/40 border-t-[#f4e4bc] rounded-full animate-spin inline-block" />
-                  집필 중...
-                </>
-              ) : '✒ 이 챕터 집필하기'}
-            </button>
-          )}
-          <div className="flex items-center gap-3 w-full opacity-40">
-            <div className="flex-1 h-px bg-[#d4b483]" />
-            <span className="text-[#d4b483] text-xs">✦</span>
-            <div className="flex-1 h-px bg-[#d4b483]" />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // kind === 'text'
-  return (
-    <div className="absolute inset-0 bg-[#f4e4bc] flex flex-col">
-      {textureOverlay}
-      {/* 러닝 헤더 */}
-      {page.chapterLabel && (
-        <div className={`relative shrink-0 px-6 pt-3 pb-2 border-b border-[#d4b483]/30 ${side === 'left' ? 'text-left' : 'text-right'}`}>
-          <span className="text-[10px] text-[#a1887f] tracking-[0.2em] italic">
-            {page.chapterLabel}
-          </span>
-        </div>
-      )}
-      {/* 본문 */}
-      <div className="relative flex-1 px-7 py-5 overflow-hidden">
-        <p
-          className="text-[#3e2723] text-[13px] leading-[2.0] whitespace-pre-wrap"
-          style={{ fontFamily: 'Georgia, "Noto Serif KR", serif' }}
-        >
-          {page.pageNum === 1 && !page.chapterLabel ? (
-            <>
-              <span
-                className="float-left font-bold text-[#8d6e63] mr-2"
-                style={{ fontSize: '3.5em', lineHeight: '0.82', marginTop: '2px' }}
-              >
-                {page.text.charAt(0)}
-              </span>
-              {page.text.slice(1)}
-            </>
-          ) : page.text}
-        </p>
-      </div>
-      {/* 페이지 번호 */}
-      <div className={`relative shrink-0 px-6 pb-3 pt-2 border-t border-[#d4b483]/20 flex ${side === 'left' ? 'justify-start' : 'justify-end'}`}>
-        <span className="text-[10px] text-[#a1887f] tracking-[0.2em]">
-          — {page.pageNum} / {page.totalPages} —
-        </span>
-      </div>
-    </div>
-  )
-}
-
 // ── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 
 export default function LibraryPage() {
@@ -281,8 +94,10 @@ export default function LibraryPage() {
 
   // 서재 데이터
   const [stories, setStories] = useState<Story[]>([])
+  const [purchasedStories, setPurchasedStories] = useState<Story[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Story | null>(null)
+  const [selectedIsPurchased, setSelectedIsPurchased] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -292,19 +107,20 @@ export default function LibraryPage() {
 
   // 챕터 생성 상태 (장편)
   const [generatingChapterId, setGeneratingChapterId] = useState<number | null>(null)
+  const [chapterError, setChapterError] = useState<string | null>(null)
 
-  // 3D 북 리더 상태
-  const [bookPages, setBookPages]       = useState<BookPage[]>([])
-  const [spreadIndex, setSpreadIndex]   = useState(0)
-  const [isFlipping, setIsFlipping]     = useState(false)
-  const [flipDir, setFlipDir]           = useState<'next' | 'prev' | null>(null)
-  const [flipperFront, setFlipperFront] = useState<BookPage | null>(null)
-  const [flipperBack, setFlipperBack]   = useState<BookPage | null>(null)
+  // 북 리더 상태
+  const [bookPages, setBookPages]     = useState<BookPage[]>([])
+  const [pageIndex, setPageIndex]     = useState(0)          // StPageFlip 기준 페이지 번호
+  const bookReaderRef = useRef<LibraryBookReaderHandle>(null)
 
   // BGM
-  const { muted, toggleMuted } = useBGMStore()
+  const { muted } = useBGMStore()
   const audioRef     = useRef<HTMLAudioElement | null>(null)
   const fadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // 모바일 감지
+  const [isMobile, setIsMobile] = useState(false)
 
   // 책 컨테이너 크기 측정 (동적 페이지네이션용)
   const bookContainerRef = useRef<HTMLDivElement>(null)
@@ -320,6 +136,14 @@ export default function LibraryPage() {
     if (authLoading || !user) return
     fetchStories()
   }, [user, authLoading])
+
+  // ── 모바일 감지 ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   // ── 책 컨테이너 크기 감지 ────────────────────────────────────────────────
   useEffect(() => {
@@ -349,13 +173,12 @@ export default function LibraryPage() {
   useEffect(() => {
     if (!selected) {
       setBookPages([])
-      setSpreadIndex(0)
+      setPageIndex(0)
       prevSelectedIdRef.current = null
       return
     }
     const pages = prepareBookPages(selected, charsPerPage)
     setBookPages(pages)
-    const totalSpreads = Math.ceil(pages.length / 2)
 
     const isNewBook = selected.id !== prevSelectedIdRef.current
     if (isNewBook) {
@@ -364,32 +187,32 @@ export default function LibraryPage() {
       const saved = localStorage.getItem(`bookmark_${selected.id}`)
       if (saved) {
         const idx = parseInt(saved, 10)
-        if (idx > 0 && idx < totalSpreads) {
-          setSpreadIndex(idx)
+        if (idx > 0 && idx < pages.length) {
+          setPageIndex(idx)
           setBookmarkRestored(true)
           if (bookmarkToastRef.current) clearTimeout(bookmarkToastRef.current)
           bookmarkToastRef.current = setTimeout(() => setBookmarkRestored(false), 2500)
         } else {
-          setSpreadIndex(0)
+          setPageIndex(0)
         }
       } else {
-        setSpreadIndex(0)
+        setPageIndex(0)
       }
     } else {
       // 리사이즈 → 현재 위치 유지 (유효 범위 내)
-      setSpreadIndex(prev => (prev < totalSpreads ? prev : 0))
+      setPageIndex(prev => (prev < pages.length ? prev : 0))
     }
   }, [selected, charsPerPage])
 
   // ── 책갈피 저장 ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!selected) return
-    if (spreadIndex === 0) {
+    if (pageIndex === 0) {
       localStorage.removeItem(`bookmark_${selected.id}`)
     } else {
-      localStorage.setItem(`bookmark_${selected.id}`, String(spreadIndex))
+      localStorage.setItem(`bookmark_${selected.id}`, String(pageIndex))
     }
-  }, [selected?.id, spreadIndex])
+  }, [selected?.id, pageIndex])
 
   // ── 서재 BGM ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -445,26 +268,49 @@ export default function LibraryPage() {
 
   const fetchStories = async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('library')
-      .select('*')
-      .eq('user_id', user!.id)
-      .order('created_at', { ascending: false })
-    if (!error && data) setStories(data as Story[])
+    const [myRes, purchasedRes] = await Promise.all([
+      supabase
+        .from('library')
+        .select('*')
+        .eq('user_id', user!.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('purchases')
+        .select('story_id, library(*)')
+        .eq('user_id', user!.id)
+        .order('created_at', { ascending: false }),
+    ])
+    if (!myRes.error && myRes.data) setStories(myRes.data as Story[])
+    if (!purchasedRes.error && purchasedRes.data) {
+      const purchased = (purchasedRes.data as { story_id: string; library: unknown }[])
+        .map((row) => {
+          const lib = row.library
+          if (Array.isArray(lib)) return lib[0] as Story | undefined
+          return lib as Story | null
+        })
+        .filter((s): s is Story => !!s)
+      setPurchasedStories(purchased)
+    }
     setLoading(false)
   }
 
   const closeModal = () => {
     setSelected(null)
+    setSelectedIsPurchased(false)
     setDeleteConfirm(false)
     setGeneratingChapterId(null)
-    setIsFlipping(false)
-    setFlipDir(null)
-    setFlipperFront(null)
-    setFlipperBack(null)
     setBookmarkRestored(false)
     if (bookmarkToastRef.current) clearTimeout(bookmarkToastRef.current)
   }
+
+  // ESC 키로 모달 닫기
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selected) closeModal()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [selected])
 
   // ── 챕터 집필 (장편, 서재에서) ───────────────────────────────────────────
   const handleGenerateChapterInLibrary = async (chapterId: number) => {
@@ -500,8 +346,11 @@ export default function LibraryPage() {
         setSelected(updatedStory)
         setStories(prev => prev.map(s => s.id === selected.id ? updatedStory : s))
       }
-    } catch { /* silent */ }
-    finally { setGeneratingChapterId(null) }
+    } catch (e) {
+      console.error('[library] chapter generate error:', e)
+      setChapterError('챕터 생성에 실패했습니다. 다시 시도해주세요.')
+      setTimeout(() => setChapterError(null), 4000)
+    } finally { setGeneratingChapterId(null) }
   }
 
   const deleteStory = async (id: string) => {
@@ -514,6 +363,15 @@ export default function LibraryPage() {
     setDeleting(false)
   }
 
+  const handleTogglePublic = async () => {
+    if (!selected) return
+    const next = !selected.is_public
+    await supabase.from('library').update({ is_public: next }).eq('id', selected.id)
+    const updated = { ...selected, is_public: next }
+    setSelected(updated)
+    setStories(prev => prev.map(s => s.id === selected.id ? updated : s))
+  }
+
   const formatDate = (iso: string) => {
     const d = new Date(iso)
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
@@ -521,35 +379,11 @@ export default function LibraryPage() {
 
   // ── 플립 핸들러 ──────────────────────────────────────────────────────────
   const totalSpreads = bookPages.length > 0 ? Math.ceil(bookPages.length / 2) : 1
-  const canGoPrev = spreadIndex > 0
-  const canGoNext = spreadIndex < totalSpreads - 1
+  const canGoPrev = pageIndex > 0
+  const canGoNext = pageIndex < bookPages.length - 2
 
-  const getL = (si: number): BookPage => bookPages[si * 2]       ?? { kind: 'blank' }
-  const getR = (si: number): BookPage => bookPages[si * 2 + 1]   ?? { kind: 'blank' }
-
-  const handleFlipNext = () => {
-    if (isFlipping || !canGoNext) return
-    setFlipperFront(getR(spreadIndex))
-    setFlipperBack(getL(spreadIndex + 1))
-    setFlipDir('next')
-    setIsFlipping(true)
-  }
-
-  const handleFlipPrev = () => {
-    if (isFlipping || !canGoPrev) return
-    setFlipperFront(getL(spreadIndex))
-    setFlipperBack(getR(spreadIndex - 1))
-    setFlipDir('prev')
-    setIsFlipping(true)
-  }
-
-  const handleFlipComplete = () => {
-    setSpreadIndex(i => flipDir === 'next' ? i + 1 : i - 1)
-    setIsFlipping(false)
-    setFlipDir(null)
-    setFlipperFront(null)
-    setFlipperBack(null)
-  }
+  const handleFlipNext = () => bookReaderRef.current?.flipNext()
+  const handleFlipPrev = () => bookReaderRef.current?.flipPrev()
 
   // ── 서가 데이터 (정렬 + 필터) ────────────────────────────────────────────
   const sortedStories = useMemo(() => {
@@ -564,16 +398,22 @@ export default function LibraryPage() {
   const shortStories = typeFilter !== 'long'  ? sortedStories.filter(s => s.type === 'short') : []
   const longStories  = typeFilter !== 'short' ? sortedStories.filter(s => s.type === 'long')  : []
 
-  const renderShelf = (shelfStories: Story[], label: string) => (
+  const renderShelf = (shelfStories: Story[], label: string, isPurchased = false) => (
     <div className="space-y-2">
-      <div className="flex items-center gap-3 mb-5 opacity-65">
-        <div className="flex-1 h-px bg-[#d4b483]" />
-        <span className="text-[#d4b483] text-xs tracking-[0.4em]">✦ {label} ✦</span>
-        <div className="flex-1 h-px bg-[#d4b483]" />
+      <div className={`flex items-center gap-3 mb-5 ${isPurchased ? 'opacity-80' : 'opacity-65'}`}>
+        <div className={`flex-1 h-px ${isPurchased ? 'bg-[#b8860b]' : 'bg-[#d4b483]'}`} />
+        <span className={`text-xs tracking-[0.4em] ${isPurchased ? 'text-[#b8860b]' : 'text-[#d4b483]'}`}>
+          {isPurchased ? '📚 ' : '✦ '}{label}{isPurchased ? ' 📚' : ' ✦'}
+        </span>
+        <div className={`flex-1 h-px ${isPurchased ? 'bg-[#b8860b]' : 'bg-[#d4b483]'}`} />
       </div>
       <div>
-        <div className="flex flex-wrap gap-x-3 gap-y-10 items-end px-6 pt-10 pb-0 min-h-[170px]
-                        bg-[#1e0f05]/30 border border-b-0 border-[#5d4037]/25 rounded-t">
+        <div className={`flex flex-wrap gap-x-3 gap-y-10 items-end px-6 pt-10 pb-0 min-h-[170px]
+                        border border-b-0 rounded-t ${
+                          isPurchased
+                            ? 'bg-[#1a1000]/50 border-[#6d5000]/30'
+                            : 'bg-[#1e0f05]/30 border-[#5d4037]/25'
+                        }`}>
           {shelfStories.length === 0 ? (
             <div className="flex-1 flex items-center justify-center py-6">
               <p className="text-[#5d4037]/35 text-xs tracking-widest italic">
@@ -585,7 +425,7 @@ export default function LibraryPage() {
               <div
                 key={story.id}
                 className="relative group cursor-pointer"
-                onClick={() => setSelected(story)}
+                onClick={() => { setSelected(story); setSelectedIsPurchased(isPurchased) }}
               >
                 {/* 미리보기 카드 */}
                 <div className="
@@ -649,9 +489,11 @@ export default function LibraryPage() {
             ))
           )}
         </div>
-        <div className="h-4 rounded-b
-                        bg-gradient-to-b from-[#6d4c41] to-[#3e2723]
-                        shadow-[0_5px_16px_rgba(0,0,0,0.75),_inset_0_1px_0_rgba(255,200,100,0.1)]" />
+        <div className={`h-4 rounded-b shadow-[0_5px_16px_rgba(0,0,0,0.75),_inset_0_1px_0_rgba(255,200,100,0.1)] ${
+          isPurchased
+            ? 'bg-gradient-to-b from-[#8b6914] to-[#4a3800]'
+            : 'bg-gradient-to-b from-[#6d4c41] to-[#3e2723]'
+        }`} />
       </div>
     </div>
   )
@@ -667,8 +509,8 @@ export default function LibraryPage() {
 
       <div className="relative z-10 max-w-5xl mx-auto px-4 py-10 space-y-10">
 
-        {/* 상단 바: 뒤로가기 + 뮤트 */}
-        <div className="flex items-center justify-between">
+        {/* 상단 바: 뒤로가기 */}
+        <div>
           <motion.button
             onClick={() => router.push('/')}
             initial={{ opacity: 0, x: -10 }}
@@ -677,16 +519,6 @@ export default function LibraryPage() {
             className="text-[#d4b483]/60 hover:text-[#d4b483] transition-colors text-sm tracking-widest flex items-center gap-2"
           >
             ← 별빛 도서관으로
-          </motion.button>
-          <motion.button
-            onClick={toggleMuted}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            title={muted ? '음악 켜기' : '음악 끄기'}
-            className="w-8 h-8 flex items-center justify-center rounded-full border border-[#d4b483]/25 hover:border-[#d4b483]/60 text-[#d4b483]/50 hover:text-[#d4b483] transition-all text-sm"
-          >
-            {muted ? '🔇' : '🔊'}
           </motion.button>
         </div>
 
@@ -707,7 +539,7 @@ export default function LibraryPage() {
         </motion.div>
 
         {/* 필터 / 정렬 바 */}
-        {!loading && stories.length > 0 && (
+        {!loading && (stories.length > 0 || purchasedStories.length > 0) && (
           <div className="flex items-center justify-between gap-3 flex-wrap">
             {/* 유형 필터 */}
             <div className="flex items-center gap-1.5">
@@ -753,7 +585,7 @@ export default function LibraryPage() {
         )}
 
         {/* 빈 서재 */}
-        {!loading && stories.length === 0 && (
+        {!loading && stories.length === 0 && purchasedStories.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -776,7 +608,7 @@ export default function LibraryPage() {
         )}
 
         {/* 책장 UI */}
-        {!loading && stories.length > 0 && (
+        {!loading && (stories.length > 0 || purchasedStories.length > 0) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -785,6 +617,7 @@ export default function LibraryPage() {
           >
             {typeFilter !== 'long'  && renderShelf(shortStories, '단편 서가')}
             {typeFilter !== 'short' && renderShelf(longStories,  '장편 서가')}
+            {purchasedStories.length > 0 && renderShelf(purchasedStories, '소장 목록', true)}
           </motion.div>
         )}
 
@@ -803,6 +636,51 @@ export default function LibraryPage() {
               className="fixed inset-0 bg-black/85 z-40 backdrop-blur-sm"
             />
 
+            {/* 삭제 확인 모달 */}
+            <AnimatePresence>
+              {deleteConfirm && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[55] flex items-center justify-center px-6"
+                  onClick={() => setDeleteConfirm(false)}
+                >
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.92, y: 12 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.92, y: 8 }}
+                    transition={{ duration: 0.2 }}
+                    className="w-full max-w-sm bg-[#1a1412] border border-[#c0392b]/40 rounded-2xl p-6 shadow-[0_20px_60px_rgba(0,0,0,0.9)]"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex flex-col items-center gap-2 mb-5">
+                      <span className="text-2xl">🗑</span>
+                      <h3 className="text-[#f4e4bc] text-base font-bold tracking-widest">이야기를 삭제할까요?</h3>
+                      <p className="text-[#a1887f] text-xs tracking-wide text-center leading-relaxed">
+                        삭제된 이야기는 복구할 수 없습니다
+                      </p>
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setDeleteConfirm(false)}
+                        className="flex-1 py-2.5 rounded-lg border border-[#a1887f]/40 text-[#a1887f] text-xs tracking-widest hover:border-[#8d6e63] hover:text-[#d4b483] transition-colors"
+                      >
+                        취소
+                      </button>
+                      <button
+                        onClick={() => deleteStory(selected.id)}
+                        disabled={deleting}
+                        className="flex-1 py-2.5 rounded-lg bg-[#c0392b] hover:bg-[#a93226] text-white text-xs font-bold tracking-widest transition-colors disabled:opacity-50"
+                      >
+                        {deleting ? '삭제 중...' : '삭제하기'}
+                      </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* 북 리더 */}
             <motion.div
               initial={{ opacity: 0, scale: 0.94, y: 24 }}
@@ -817,49 +695,82 @@ export default function LibraryPage() {
                 className="w-full max-w-5xl flex items-center justify-between px-1 shrink-0"
                 style={{ pointerEvents: 'auto' }}
               >
-                <h2 className="text-[#f4e4bc] text-sm font-bold tracking-wide leading-tight">
+                <h2 className="text-[#f4e4bc] text-sm font-bold tracking-wide leading-tight flex items-center gap-2">
                   {selected.title ?? `${selected.genre} · ${selected.era}`}
+                  {selectedIsPurchased && (
+                    <span className="text-[9px] px-2 py-0.5 rounded-full border border-[#d4b483]/40 text-[#d4b483]/70 tracking-widest">
+                      소장
+                    </span>
+                  )}
                 </h2>
-                <div className="flex items-center gap-2">
-                  {!deleteConfirm ? (
-                    <button
+                <motion.div layout className="flex items-center gap-2">
+                  {selected.is_public && (
+                    <ShareFAB storyId={selected.id} title={selected.title ?? ''} inline />
+                  )}
+                  {!selectedIsPurchased && (
+                    <motion.button
+                      layout
                       onClick={() => setDeleteConfirm(true)}
-                      className="w-8 h-8 rounded-full border border-[#c0392b]/40 text-[#c0392b]/60 hover:text-[#c0392b] hover:border-[#c0392b] transition-colors flex items-center justify-center text-sm"
+                      className="w-8 h-8 rounded-full border border-[#c0392b]/70 text-[#c0392b]/80 bg-[#c0392b]/10 hover:bg-[#c0392b]/20 hover:text-[#c0392b] hover:border-[#c0392b] transition-colors flex items-center justify-center text-sm"
                       title="이야기 삭제"
                     >
                       🗑
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[#c0392b] text-xs">삭제할까요?</span>
-                      <button
-                        onClick={() => deleteStory(selected.id)}
-                        disabled={deleting}
-                        className="px-2.5 py-1 bg-[#c0392b] text-white text-xs rounded hover:bg-[#a93226] transition-colors disabled:opacity-50"
-                      >
-                        {deleting ? '...' : '삭제'}
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirm(false)}
-                        className="px-2.5 py-1 text-[#8d6e63] text-xs rounded border border-[#a1887f]/50 hover:border-[#8d6e63] transition-colors"
-                      >
-                        취소
-                      </button>
-                    </div>
+                    </motion.button>
                   )}
                   <button
                     onClick={closeModal}
-                    className="w-8 h-8 rounded-full border border-[#a1887f]/50 text-[#d4b483]/70 hover:text-[#f4e4bc] hover:border-[#d4b483] transition-colors flex items-center justify-center text-xl leading-none"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[#a1887f]/50 text-[#d4b483] hover:text-[#f4e4bc] hover:border-[#d4b483] hover:bg-[#3e2723]/60 transition-colors text-xs tracking-widest"
                   >
-                    ×
+                    ✕ 닫기
                   </button>
-                </div>
+                </motion.div>
               </div>
+
+              {/* 공유 컨트롤 (내 이야기만) */}
+              {!selectedIsPurchased && (() => {
+                const allDone = selected.type === 'long'
+                  ? (selected.outline?.length === 5 && selected.outline.every(c => c.status === 'completed'))
+                  : true
+                const canShare = selected.type === 'short' || allDone
+                return (
+                  <div
+                    className="w-full max-w-5xl flex items-center gap-3 px-1 shrink-0"
+                    style={{ pointerEvents: 'auto' }}
+                  >
+                    {!canShare ? (
+                      <p className="text-[#a1887f] text-xs tracking-widest italic">
+                        🔒 챕터 5개가 모두 완성되어야 공유할 수 있습니다
+                      </p>
+                    ) : (
+                      <>
+                        <button
+                          onClick={handleTogglePublic}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded border text-xs tracking-widest transition-colors ${
+                            selected.is_public
+                              ? 'bg-[#8d6e63] border-[#5d4037] text-[#f4e4bc]'
+                              : 'bg-transparent border-[#8d6e63]/40 text-[#a1887f] hover:border-[#8d6e63]'
+                          }`}
+                        >
+                          {selected.is_public ? '✦ 이야기 광장 공개 중' : '나만 보기'}
+                        </button>
+                        {selected.is_public && (
+                          <button
+                            onClick={() => window.open(`/story/${selected.id}`, '_blank')}
+                            className="px-3 py-1.5 bg-[#5d4037]/60 hover:bg-[#5d4037] text-[#d4b483] text-xs rounded border border-[#8d6e63]/50 tracking-widest transition-colors"
+                          >
+                            ✦ 이야기 광장에서 보기
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )
+              })()}
 
               {/* 책 본체 */}
               <div
                 ref={bookContainerRef}
-                className="w-full max-w-5xl relative flex-1 min-h-0"
+                className="w-full max-w-5xl relative flex-1 min-h-0 flex items-center justify-center"
                 style={{ pointerEvents: 'auto' }}
               >
                 {/* 가죽 외장 */}
@@ -870,183 +781,23 @@ export default function LibraryPage() {
                 <div className="absolute inset-[-4px] md:inset-[-7px] rounded-xl
                                 border border-[#8d6e63]/30 pointer-events-none" />
 
-                {/* 3D 펼침 영역 */}
-                <div
-                  className="absolute inset-0 rounded-lg overflow-hidden"
-                  style={{ perspective: '900px' }}
-                >
-                  {/* 정적 레이어 */}
-                  <div className="absolute inset-0 flex">
-                    {/* 좌 페이지 (md 이상) */}
-                    <div
-                      className="hidden md:block md:w-1/2 h-full relative overflow-hidden"
-                      style={{ boxShadow: 'inset -10px 0 20px rgba(0,0,0,0.15)' }}
-                    >
-                      <PageContent
-                        page={flipDir === 'prev' ? getL(spreadIndex - 1) : getL(spreadIndex)}
-                        side="left"
-                        story={selected}
-                        generatingChapterId={generatingChapterId}
-                        onGenerate={handleGenerateChapterInLibrary}
-                      />
-                      {/* NEXT 플립 시 오른쪽 페이지가 지나가며 드리우는 그림자 */}
-                      <motion.div
-                        className="absolute inset-0 pointer-events-none z-10"
-                        animate={{ opacity: (isFlipping && flipDir === 'next') ? [0, 0.3, 0] : 0 }}
-                        transition={{ duration: isFlipping ? 1.1 : 0.2, ease: 'easeInOut' }}
-                        style={{ background: 'linear-gradient(to left, rgba(0,0,0,0.4) 0%, transparent 65%)' }}
-                      />
-                    </div>
-                    {/* 우 페이지 */}
-                    <div
-                      className="w-full md:w-1/2 h-full relative overflow-hidden"
-                      style={{ boxShadow: 'inset 10px 0 20px rgba(0,0,0,0.15)' }}
-                    >
-                      <PageContent
-                        page={flipDir === 'next' ? getR(spreadIndex + 1) : getR(spreadIndex)}
-                        side="right"
-                        story={selected}
-                        generatingChapterId={generatingChapterId}
-                        onGenerate={handleGenerateChapterInLibrary}
-                      />
-                      {/* PREV 플립 시 왼쪽 페이지가 지나가며 드리우는 그림자 */}
-                      <motion.div
-                        className="absolute inset-0 pointer-events-none z-10"
-                        animate={{ opacity: (isFlipping && flipDir === 'prev') ? [0, 0.3, 0] : 0 }}
-                        transition={{ duration: isFlipping ? 1.1 : 0.2, ease: 'easeInOut' }}
-                        style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.4) 0%, transparent 65%)' }}
-                      />
-                    </div>
+                {/* StPageFlip 책 뷰어 */}
+                {bookSize.w > 0 && bookSize.h > 0 && (
+                  <div className="relative z-10 overflow-hidden rounded-lg">
+                    <DynamicBookReader
+                      ref={bookReaderRef}
+                      pages={bookPages}
+                      story={selected}
+                      generatingChapterId={generatingChapterId}
+                      onGenerate={selectedIsPurchased ? undefined : handleGenerateChapterInLibrary}
+                      onPageChange={(pi) => setPageIndex(pi)}
+                      startPage={pageIndex}
+                      width={Math.max(120, isMobile ? bookSize.w : Math.floor(bookSize.w / 2))}
+                      height={bookSize.h}
+                      isMobile={isMobile}
+                    />
                   </div>
-
-                  {/* NEXT 플리퍼: 우→좌 */}
-                  {isFlipping && flipDir === 'next' && (
-                    <motion.div
-                      className="absolute top-0 right-0 w-full md:w-1/2 h-full origin-left z-20"
-                      style={{ transformStyle: 'preserve-3d' }}
-                      initial={{ rotateY: 0, translateZ: 0 }}
-                      animate={{ rotateY: -180, translateZ: [0, 28, 0] }}
-                      transition={{ duration: 1.1, ease: [0.4, 0, 0.6, 1] }}
-                      onAnimationComplete={handleFlipComplete}
-                    >
-                      {/* 앞면: 현재 우 페이지 (날아가는 쪽) */}
-                      <div
-                        className="absolute inset-0 overflow-hidden"
-                        style={{
-                          backfaceVisibility: 'hidden',
-                          boxShadow: 'inset 10px 0 20px rgba(0,0,0,0.15)',
-                        }}
-                      >
-                        <PageContent
-                          page={flipperFront}
-                          side="right"
-                          story={selected}
-                          generatingChapterId={generatingChapterId}
-                          onGenerate={handleGenerateChapterInLibrary}
-                        />
-                        {/* 종이 곡면 그림자: 척추 쪽으로 갈수록 어두워짐 */}
-                        <motion.div
-                          className="absolute inset-0 pointer-events-none z-10"
-                          animate={{ opacity: [0, 0.9, 0] }}
-                          transition={{ duration: 1.1, ease: 'easeInOut' }}
-                          style={{ background: 'linear-gradient(to left, rgba(30,10,0,0.55) 0%, rgba(80,40,10,0.2) 35%, transparent 70%)' }}
-                        />
-                      </div>
-                      {/* 뒷면: 다음 좌 페이지 (착지하는 쪽) */}
-                      <div
-                        className="absolute inset-0 overflow-hidden"
-                        style={{
-                          backfaceVisibility: 'hidden',
-                          transform: 'rotateY(180deg)',
-                          boxShadow: 'inset -10px 0 20px rgba(0,0,0,0.15)',
-                        }}
-                      >
-                        <PageContent
-                          page={flipperBack}
-                          side="left"
-                          story={selected}
-                          generatingChapterId={generatingChapterId}
-                          onGenerate={handleGenerateChapterInLibrary}
-                        />
-                        {/* 접힘에서 펼쳐지는 그림자 (뒷면 rotateY(180deg)로 인해 to right = 뷰어 기준 to left) */}
-                        <motion.div
-                          className="absolute inset-0 pointer-events-none z-10"
-                          animate={{ opacity: [0.9, 0.5, 0] }}
-                          transition={{ duration: 1.1, ease: 'easeOut' }}
-                          style={{ background: 'linear-gradient(to right, rgba(30,10,0,0.6) 0%, rgba(80,40,10,0.2) 40%, transparent 75%)' }}
-                        />
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* PREV 플리퍼: 좌→우 */}
-                  {isFlipping && flipDir === 'prev' && (
-                    <motion.div
-                      className="absolute top-0 left-0 w-full md:w-1/2 h-full origin-right z-20"
-                      style={{ transformStyle: 'preserve-3d' }}
-                      initial={{ rotateY: 0, translateZ: 0 }}
-                      animate={{ rotateY: 180, translateZ: [0, 28, 0] }}
-                      transition={{ duration: 1.1, ease: [0.4, 0, 0.6, 1] }}
-                      onAnimationComplete={handleFlipComplete}
-                    >
-                      {/* 앞면: 현재 좌 페이지 (날아가는 쪽) */}
-                      <div
-                        className="absolute inset-0 overflow-hidden"
-                        style={{
-                          backfaceVisibility: 'hidden',
-                          boxShadow: 'inset -10px 0 20px rgba(0,0,0,0.15)',
-                        }}
-                      >
-                        <PageContent
-                          page={flipperFront}
-                          side="left"
-                          story={selected}
-                          generatingChapterId={generatingChapterId}
-                          onGenerate={handleGenerateChapterInLibrary}
-                        />
-                        {/* 종이 곡면 그림자: 왼쪽 끝(척추 반대쪽)이 어두워짐 */}
-                        <motion.div
-                          className="absolute inset-0 pointer-events-none z-10"
-                          animate={{ opacity: [0, 0.9, 0] }}
-                          transition={{ duration: 1.1, ease: 'easeInOut' }}
-                          style={{ background: 'linear-gradient(to right, rgba(30,10,0,0.55) 0%, rgba(80,40,10,0.2) 35%, transparent 70%)' }}
-                        />
-                      </div>
-                      {/* 뒷면: 이전 우 페이지 (착지하는 쪽) */}
-                      <div
-                        className="absolute inset-0 overflow-hidden"
-                        style={{
-                          backfaceVisibility: 'hidden',
-                          transform: 'rotateY(-180deg)',
-                          boxShadow: 'inset 10px 0 20px rgba(0,0,0,0.15)',
-                        }}
-                      >
-                        <PageContent
-                          page={flipperBack}
-                          side="right"
-                          story={selected}
-                          generatingChapterId={generatingChapterId}
-                          onGenerate={handleGenerateChapterInLibrary}
-                        />
-                        {/* 접힘에서 펼쳐지는 그림자 (rotateY(-180deg)로 인해 to left = 뷰어 기준 to right) */}
-                        <motion.div
-                          className="absolute inset-0 pointer-events-none z-10"
-                          animate={{ opacity: [0.9, 0.5, 0] }}
-                          transition={{ duration: 1.1, ease: 'easeOut' }}
-                          style={{ background: 'linear-gradient(to left, rgba(30,10,0,0.6) 0%, rgba(80,40,10,0.2) 40%, transparent 75%)' }}
-                        />
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* 가운데 척추 그림자 */}
-                  <div
-                    className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-10 z-10 pointer-events-none hidden md:block"
-                    style={{
-                      background: 'linear-gradient(to right, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.04) 35%, rgba(0,0,0,0.04) 65%, rgba(0,0,0,0.28) 100%)',
-                    }}
-                  />
-                </div>
+                )}
               </div>
 
               {/* 하단 내비게이션 */}
@@ -1056,17 +807,17 @@ export default function LibraryPage() {
               >
                 <motion.button
                   onClick={handleFlipPrev}
-                  disabled={!canGoPrev || isFlipping}
-                  whileHover={{ scale: canGoPrev && !isFlipping ? 1.04 : 1 }}
+                  disabled={!canGoPrev}
+                  whileHover={{ scale: canGoPrev ? 1.04 : 1 }}
                   whileTap={{ scale: 0.96 }}
-                  className="px-4 md:px-6 py-2 bg-[#5d4037]/80 hover:bg-[#5d4037] text-[#d4b483] text-xs md:text-sm rounded border border-[#8d6e63]/50 tracking-widest transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+                  className="px-4 md:px-6 py-2 min-h-[44px] bg-[#5d4037]/80 hover:bg-[#5d4037] text-[#d4b483] text-xs md:text-sm rounded border border-[#8d6e63]/50 tracking-widest transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
                 >
                   ← 이전 장
                 </motion.button>
 
                 <div className="flex flex-col items-center gap-0.5 min-w-[70px]">
                   <span className="text-[#a1887f] text-[11px] tracking-[0.25em] text-center">
-                    {spreadIndex + 1} / {totalSpreads}
+                    {Math.floor(pageIndex / 2) + 1} / {totalSpreads}
                   </span>
                   <AnimatePresence>
                     {bookmarkRestored && (
@@ -1084,14 +835,28 @@ export default function LibraryPage() {
 
                 <motion.button
                   onClick={handleFlipNext}
-                  disabled={!canGoNext || isFlipping}
-                  whileHover={{ scale: canGoNext && !isFlipping ? 1.04 : 1 }}
+                  disabled={!canGoNext}
+                  whileHover={{ scale: canGoNext ? 1.04 : 1 }}
                   whileTap={{ scale: 0.96 }}
-                  className="px-4 md:px-6 py-2 bg-[#5d4037]/80 hover:bg-[#5d4037] text-[#d4b483] text-xs md:text-sm rounded border border-[#8d6e63]/50 tracking-widest transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+                  className="px-4 md:px-6 py-2 min-h-[44px] bg-[#5d4037]/80 hover:bg-[#5d4037] text-[#d4b483] text-xs md:text-sm rounded border border-[#8d6e63]/50 tracking-widest transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
                 >
                   다음 장 →
                 </motion.button>
               </div>
+
+              {/* 챕터 생성 에러 */}
+              <AnimatePresence>
+                {chapterError && (
+                  <motion.p
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="text-red-400/80 text-xs text-center tracking-wide shrink-0"
+                  >
+                    {chapterError}
+                  </motion.p>
+                )}
+              </AnimatePresence>
 
             </motion.div>
           </>

@@ -1,34 +1,52 @@
 // src/components/UserAvatar.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useBGMStore } from '@/store/bgmStore'
 
 export default function UserAvatar() {
   const { user, loading, signOut } = useAuth()
   const router = useRouter()
-  const pathname = usePathname()
   const [hovered, setHovered] = useState(false)
+  const [isTouch, setIsTouch] = useState(false)
   const { muted, toggleMuted } = useBGMStore()
 
-  const isHeroPage = pathname === '/'
+  // 터치 디바이스 감지
+  useEffect(() => {
+    setIsTouch('ontouchstart' in window || navigator.maxTouchPoints > 0)
+  }, [])
+
+  // 외부 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    if (!hovered) return
+    const close = () => setHovered(false)
+    document.addEventListener('click', close)
+    document.addEventListener('touchstart', close)
+    return () => {
+      document.removeEventListener('click', close)
+      document.removeEventListener('touchstart', close)
+    }
+  }, [hovered])
 
   if (loading) return null
 
   return (
     <div
-      className="fixed top-5 right-6 z-50"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      className="fixed top-5 right-6 z-[39]"
+      onMouseEnter={isTouch ? undefined : () => setHovered(true)}
+      onMouseLeave={isTouch ? undefined : () => setHovered(false)}
     >
       {user ? (
         <>
           {/* 프로필 아바타 */}
-          <div className="w-9 h-9 rounded-full border-2 border-[#d4b483]/60 overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.6)] cursor-pointer transition-all duration-200 hover:border-[#d4b483] hover:shadow-[0_0_16px_rgba(212,180,131,0.4)]">
+          <div
+            onClick={(e) => { e.stopPropagation(); setHovered(prev => !prev) }}
+            className="w-9 h-9 rounded-full border-2 border-[#d4b483]/60 overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.6)] cursor-pointer transition-all duration-200 hover:border-[#d4b483] hover:shadow-[0_0_16px_rgba(212,180,131,0.4)]"
+          >
             {user.user_metadata?.avatar_url ? (
               <Image
                 src={user.user_metadata.avatar_url}
@@ -82,15 +100,13 @@ export default function UserAvatar() {
                   📖 나의 서재
                 </button>
 
-                {/* BGM 음소거 (히어로 페이지에서만 표시) */}
-                {isHeroPage && (
-                  <button
-                    onClick={toggleMuted}
-                    className="w-full px-4 py-3 text-left text-xs text-[#d4b483]/80 hover:text-[#f4e4bc] hover:bg-[#3e2723]/60 tracking-widest transition-colors border-b border-[#d4b483]/15 flex items-center gap-2"
-                  >
-                    {muted ? '🔇 BGM 끄기' : '🔊 BGM 켜기'}
-                  </button>
-                )}
+                {/* BGM 음소거 */}
+                <button
+                  onClick={toggleMuted}
+                  className="w-full px-4 py-3 text-left text-xs text-[#d4b483]/80 hover:text-[#f4e4bc] hover:bg-[#3e2723]/60 tracking-widest transition-colors border-b border-[#d4b483]/15 flex items-center gap-2"
+                >
+                  {muted ? '🔇 BGM 끄기' : '🔊 BGM 켜기'}
+                </button>
 
                 {/* 로그아웃 */}
                 <button

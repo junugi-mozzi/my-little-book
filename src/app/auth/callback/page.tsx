@@ -12,7 +12,13 @@ export default function AuthCallbackPage() {
     const code = new URLSearchParams(window.location.search).get('code')
     if (code) {
       supabase.auth.exchangeCodeForSession(code).then(() => {
-        router.push('/')
+        const redirect = localStorage.getItem('auth_redirect')
+        if (redirect) {
+          localStorage.removeItem('auth_redirect')
+          router.push(redirect)
+        } else {
+          router.push('/')
+        }
       })
     } else {
       router.push('/')
