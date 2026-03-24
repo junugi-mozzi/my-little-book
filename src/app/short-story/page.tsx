@@ -231,6 +231,14 @@ export default function ShortStoryPage() {
                     </div>
                   )}
                 </div>
+                {result && !coverLoading && (
+                  <button
+                    onClick={fetchCover}
+                    className="text-[#a1887f] hover:text-[#d4b483] text-xs tracking-widest transition-colors flex items-center gap-1"
+                  >
+                    ↻ 표지 다시 생성
+                  </button>
+                )}
                 {storyTitle && (
                   <p className="text-[#5d4037] text-lg font-bold tracking-wide text-center px-4">{storyTitle}</p>
                 )}

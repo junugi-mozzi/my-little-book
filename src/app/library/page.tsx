@@ -28,6 +28,7 @@ interface Story {
   content: string | null
   outline: { id: number; title: string; summary: string; status: string; content?: string }[] | null
   cover_url?: string | null
+  characters?: { name: string; age: number; occupation: string; personality: string; speech_style: string; core_wound: string; relationships: { name: string; relation: string }[] }[] | null
   is_public: boolean
   view_count: number
 }
@@ -333,7 +334,8 @@ export default function LibraryPage() {
           chapterId: ch.id,
           chapterTitle: ch.title,
           chapterSummary: ch.summary,
-          allChapters: selected.outline.map(c => ({ id: c.id, title: c.title, summary: c.summary })),
+          allChapters: selected.outline.map(c => ({ id: c.id, title: c.title, summary: c.summary, content: c.content ?? null })),
+          characters: selected.characters ?? null,
         }),
       })
       const data = await res.json()
@@ -758,7 +760,7 @@ export default function LibraryPage() {
                             onClick={() => window.open(`/story/${selected.id}`, '_blank')}
                             className="px-3 py-1.5 bg-[#5d4037]/60 hover:bg-[#5d4037] text-[#d4b483] text-xs rounded border border-[#8d6e63]/50 tracking-widest transition-colors"
                           >
-                            ✦ 이야기 광장에서 보기
+                            ✦ 공유링크 페이지에서 보기
                           </button>
                         )}
                       </>

@@ -182,13 +182,7 @@ export default function PublicStoryPage() {
     }
   }
 
-  const handleTwitter = () => {
-    const text = encodeURIComponent(`루미스가 엮은 이야기 「${story?.title ?? '무제'}」를 읽어보세요.`)
-    const url = encodeURIComponent(window.location.href)
-    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank')
-  }
-
-  // ── 로딩 / 에러 ──────────────────────────────────────────────────────────
+// ── 로딩 / 에러 ──────────────────────────────────────────────────────────
   if (loading) return (
     <main className="h-screen bg-[#1a1412] flex flex-col items-center justify-center font-serif">
       <GridLoader color="#d4b483" />
@@ -237,12 +231,6 @@ export default function PublicStoryPage() {
             className="px-3 py-1.5 bg-[#3e2723] hover:bg-[#4e342e] text-[#d4b483] text-xs rounded border border-[#5d4037] tracking-widest transition-colors"
           >
             {copied ? '✓ 복사됨' : '🔗 링크'}
-          </button>
-          <button
-            onClick={handleTwitter}
-            className="px-3 py-1.5 bg-[#3e2723] hover:bg-[#4e342e] text-[#d4b483] text-xs rounded border border-[#5d4037] tracking-widest transition-colors"
-          >
-            𝕏
           </button>
         </div>
       </div>

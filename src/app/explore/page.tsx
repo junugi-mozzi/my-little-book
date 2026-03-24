@@ -93,6 +93,8 @@ export default function ExplorePage() {
   const [stories, setStories] = useState<StoryCard[]>([])
   const [loading, setLoading] = useState(true)
   const [sort, setSort] = useState<SortType>('latest')
+  const [topStories, setTopStories] = useState<StoryCard[]>([])
+  const [filterType, setFilterType] = useState<'all' | 'long' | 'short'>('all')
 
   // 모달 상태
   const [selected, setSelected] = useState<StoryDetail | null>(null)
@@ -122,13 +124,22 @@ export default function ExplorePage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      const { data } = await supabase
+
+      const { data: topData } = await supabase
+        .from('library')
+        .select('id, title, type, genre, era, mood, cover_url, view_count, created_at')
+        .eq('is_public', true)
+        .order('view_count', { ascending: false })
+        .limit(3)
+      setTopStories((topData as StoryCard[]) ?? [])
+
+      const { data: listData } = await supabase
         .from('library')
         .select('id, title, type, genre, era, mood, cover_url, view_count, created_at')
         .eq('is_public', true)
         .order(sort === 'latest' ? 'created_at' : 'view_count', { ascending: false })
         .limit(50)
-      setStories((data as StoryCard[]) ?? [])
+      setStories((listData as StoryCard[]) ?? [])
       setLoading(false)
     }
     load()
@@ -145,6 +156,11 @@ export default function ExplorePage() {
     ro.observe(el)
     return () => ro.disconnect()
   }, [selected])
+
+  const filteredStories = useMemo(() => {
+    if (filterType === 'all') return stories
+    return stories.filter(s => s.type === filterType)
+  }, [stories, filterType])
 
   const charsPerPage = useMemo(() => {
     if (bookSize.w === 0 || bookSize.h === 0) return 400
@@ -255,49 +271,104 @@ export default function ExplorePage() {
 
       <div className="relative z-10 max-w-5xl mx-auto px-4 py-10 space-y-8">
 
-        {/* 헤더 */}
+        {/* ─── 헤더 ─── */}
         <div className="flex items-center justify-between flex-wrap gap-4 pr-12 sm:pr-0">
           <button onClick={() => router.push('/')} className="text-[#d4b483]/60 hover:text-[#d4b483] transition-colors text-sm tracking-widest">
             ← 메인으로
           </button>
-          <div>
-            <h1 className="text-3xl font-bold text-[#d4b483] tracking-wide text-center">이야기 광장</h1>
-            <p className="text-xs text-[#a1887f] tracking-widest text-center mt-1">루미스가 엮은 이야기들이 모이는 곳</p>
+          <div className="flex flex-col items-center gap-1">
+            <h1 className="text-3xl md:text-4xl font-bold text-[#d4b483] tracking-wide text-center">이야기 광장</h1>
+            <p className="text-sm text-[#a1887f] tracking-widest text-center">루미스가 엮은 수많은 세계들이 당신을 기다립니다</p>
           </div>
-          <div className="flex gap-2">
+          <div className="w-16 sm:w-20" />
+        </div>
+
+        {/* ─── 오늘의 인기 명작 TOP 3 ─── */}
+        {!loading && topStories.length > 0 && (
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <span className="text-xl">👑</span>
+              <h2 className="text-xl font-bold text-[#f4e4bc] tracking-widest">오늘의 인기 명작</h2>
+              <div className="flex-1 h-px bg-gradient-to-r from-[#d4b483]/50 to-transparent ml-4" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {topStories.map((story, i) => (
+                <motion.div
+                  key={`top-${story.id}`}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                  onClick={() => openBook(story)}
+                  className="bg-[#2e1b0e]/40 border border-[#d4b483]/20 rounded-xl p-4 flex gap-4 cursor-pointer hover:bg-[#3e2723]/60 transition-all group"
+                >
+                  <div className="shrink-0 group-hover:scale-105 transition-transform">
+                    <BookCover genre={story.genre} era={story.era} mood={story.mood} title={story.title ?? ''} size="sm" imageUrl={story.cover_url ?? undefined} />
+                  </div>
+                  <div className="flex flex-col justify-center overflow-hidden">
+                    <span className="text-[#d4b483] text-[10px] tracking-widest mb-1 border border-[#d4b483]/30 px-1.5 py-0.5 rounded w-fit">
+                      TOP {i + 1}
+                    </span>
+                    <p className="text-[#f4e4bc] font-bold text-sm truncate mb-1">{story.title ?? '무제'}</p>
+                    <p className="text-[#a1887f] text-xs leading-relaxed">
+                      {story.genre} 배경의 {story.type === 'short' ? '단편' : '장편'} 이야기
+                    </p>
+                    <p className="text-[#8d6e63] text-xs mt-2">👁 {story.view_count.toLocaleString()}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ─── 탐색 필터 및 정렬 ─── */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-[#d4b483]/20 pb-4">
+          {/* 타입 필터 탭 */}
+          <div className="flex gap-6">
+            {(['all', 'long', 'short'] as const).map(type => (
+              <button
+                key={type}
+                onClick={() => setFilterType(type)}
+                className={`text-sm tracking-widest pb-2 transition-colors relative ${
+                  filterType === type ? 'text-[#f4e4bc] font-bold' : 'text-[#a1887f] hover:text-[#d4b483]'
+                }`}
+              >
+                {type === 'all' ? '전체 보기' : type === 'long' ? '장편 소설' : '단편 소설'}
+                {filterType === type && (
+                  <motion.div layoutId="underline" className="absolute bottom-0 left-0 w-full h-0.5 bg-[#d4b483]" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* 정렬 토글 */}
+          <div className="flex bg-[#2e1b0e] rounded-lg p-1 border border-[#d4b483]/20">
             {(['latest', 'popular'] as SortType[]).map(s => (
-              <button key={s} onClick={() => setSort(s)}
-                className={`px-3 py-1.5 text-xs rounded border tracking-widest transition-colors ${
-                  sort === s ? 'bg-[#8d6e63] border-[#5d4037] text-[#f4e4bc]' : 'bg-transparent border-[#8d6e63]/40 text-[#a1887f] hover:border-[#8d6e63]'
-                }`}>
+              <button
+                key={s}
+                onClick={() => setSort(s)}
+                className={`px-4 py-1.5 text-xs rounded-md tracking-widest transition-colors ${
+                  sort === s ? 'bg-[#5d4037] text-[#f4e4bc] shadow-sm' : 'text-[#a1887f] hover:text-[#d4b483]'
+                }`}
+              >
                 {s === 'latest' ? '최신순' : '인기순'}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="flex items-center gap-4 opacity-40">
-          <div className="flex-1 h-px bg-[#d4b483]" />
-          <span className="text-[#d4b483] text-xs tracking-[0.4em]">✦</span>
-          <div className="flex-1 h-px bg-[#d4b483]" />
-        </div>
-
-        {loading && (
+        {/* ─── 메인 그리드 ─── */}
+        {loading ? (
           <div className="flex flex-col items-center py-16">
             <GridLoader color="#d4b483" />
-            <p className="mt-6 text-[#d4b483] tracking-widest animate-pulse">이야기를 불러오는 중...</p>
+            <p className="mt-6 text-[#d4b483] tracking-widest animate-pulse">서고를 정리하는 중...</p>
           </div>
-        )}
-
-        {!loading && stories.length === 0 && (
+        ) : filteredStories.length === 0 ? (
           <div className="flex flex-col items-center py-16 gap-4">
-            <p className="text-[#a1887f] tracking-widest">아직 공개된 이야기가 없습니다.</p>
+            <p className="text-[#a1887f] tracking-widest">해당 분류에 등록된 이야기가 없습니다.</p>
           </div>
-        )}
-
-        {!loading && stories.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            {stories.map((story, i) => (
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">
+            {filteredStories.map((story, i) => (
               <motion.div
                 key={story.id}
                 initial={{ opacity: 0, y: 16 }}

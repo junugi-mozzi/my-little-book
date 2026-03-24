@@ -10,6 +10,17 @@ import { useAuthGuard } from '@/hooks/useAuthGuard'
 import { supabase } from '@/lib/supabase'
 import BookCover from '@/components/BookCover'
 
+interface CharacterProfile {
+  name: string
+  age: number
+  occupation: string
+  personality: string
+  speech_style: string
+  appearance: string
+  core_wound: string
+  relationships: { name: string; relation: string }[]
+}
+
 const CONTEXT_LABELS = [
   { key: 'atmosphere', label: '분위기/세계' },
   { key: 'wound', label: '이야기의 상처' },
@@ -36,6 +47,7 @@ export default function LongStoryPage() {
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
   const [coverLoading, setCoverLoading] = useState(false)
   const [outlineError, setOutlineError] = useState<string | null>(null)
+  const [characters, setCharacters] = useState<CharacterProfile[] | null>(null)
 
   const handleSave = async () => {
     if (outline.length === 0 || savedId || saving) return
@@ -52,6 +64,7 @@ export default function LongStoryPage() {
         outline,
         user_id: user?.id ?? null,
         cover_url: coverUrl ?? null,
+        characters: characters ?? null,
         is_public: false,
       })
       .select('id')
@@ -79,7 +92,8 @@ export default function LongStoryPage() {
           chapterId,
           chapterTitle: chapter.title,
           chapterSummary: chapter.summary,
-          allChapters: outline.map(c => ({ id: c.id, title: c.title, summary: c.summary })),
+          allChapters: outline.map(c => ({ id: c.id, title: c.title, summary: c.summary, content: c.content ?? null })),
+          characters: characters ?? null,
         }),
       })
       const data = await res.json()
@@ -90,6 +104,27 @@ export default function LongStoryPage() {
       }
     } catch {
       updateChapterStatus(chapterId, 'pending')
+    }
+  }
+
+  const fetchCharacters = async (outlineData: { id: number; title: string; summary: string }[]) => {
+    try {
+      const res = await fetch('/api/long-story/characters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          atmosphere: store.atmosphere,
+          wound: store.wound,
+          direction: store.direction,
+          tension: store.tension,
+          resonance: store.resonance,
+          outline: outlineData,
+        }),
+      })
+      const data = await res.json()
+      if (data.characters) setCharacters(data.characters)
+    } catch {
+      // 캐릭터 생성 실패 시 폴백으로 동작
     }
   }
 
@@ -142,8 +177,9 @@ export default function LongStoryPage() {
         setOutlineError(null)
         setOutline(data.outline)
         setStoryTitle(data.title ?? '')
-        // 아웃라인 완성 후 표지 이미지 백그라운드 생성
+        // 아웃라인 완성 후 표지·캐릭터 백그라운드 생성
         fetchCover()
+        fetchCharacters(data.outline)
       } else {
         setOutlineError(data.error ?? '아웃라인 생성에 실패했습니다. 다시 시도해주세요.')
       }
@@ -260,6 +296,39 @@ export default function LongStoryPage() {
                 <div className="flex-1 h-px bg-[#d4b483]" />
               </div>
 
+              {/* 캐릭터 카드 */}
+              {characters && characters.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-3"
+                >
+                  <div className="flex items-center gap-4 opacity-55">
+                    <div className="flex-1 h-px bg-[#a1887f]" />
+                    <span className="text-[#a1887f] text-xs tracking-[0.4em]">✦ 루미스가 구상한 인물들</span>
+                    <div className="flex-1 h-px bg-[#a1887f]" />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {characters.map((ch, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.07 }}
+                        className="bg-[#f4e4bc]/70 border border-[#d4b483]/50 rounded-lg px-4 py-3 space-y-1"
+                      >
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-[#5d4037] font-bold text-sm">{ch.name}</span>
+                          <span className="text-[#a1887f] text-xs">{ch.age}세 · {ch.occupation}</span>
+                        </div>
+                        <p className="text-[#6d4c41] text-xs leading-relaxed">{ch.personality}</p>
+                        <p className="text-[#8d6e63] text-xs italic">"{ch.speech_style}"</p>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
               {/* 책 표지 */}
               <div className="flex flex-col items-center py-2 gap-3">
                 <div className="relative">
@@ -270,6 +339,14 @@ export default function LongStoryPage() {
                     </div>
                   )}
                 </div>
+                {outline.length > 0 && !coverLoading && (
+                  <button
+                    onClick={fetchCover}
+                    className="text-[#a1887f] hover:text-[#d4b483] text-xs tracking-widest transition-colors flex items-center gap-1"
+                  >
+                    ↻ 표지 다시 생성
+                  </button>
+                )}
                 {storyTitle && (
                   <p className="text-[#d4b483] text-base font-bold tracking-wide text-center">{storyTitle}</p>
                 )}

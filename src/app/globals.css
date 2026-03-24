@@ -24,3 +24,12 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.thin-scrollbar::-webkit-scrollbar { width: 3px; }
+.thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.thin-scrollbar::-webkit-scrollbar-thumb { background: #8d6e63; border-radius: 9999px; }
+.thin-scrollbar::-webkit-scrollbar-thumb:hover { background: #d4b483; }
+.thin-scrollbar { scrollbar-width: thin; scrollbar-color: #8d6e63 transparent; }

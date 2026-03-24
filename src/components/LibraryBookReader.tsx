@@ -105,7 +105,7 @@ function PageContent({ page, side, story, generatingChapterId, onGenerate, onPur
           )}
           <div className="w-12 h-px bg-[#d4b483]/50 mx-auto shrink-0" />
           {isLong ? (
-            <div className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto">
+            <div className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto thin-scrollbar">
               {story.outline?.map((ch, ci) => (
                 <div key={ci} className="flex flex-col gap-1">
                   <p className="text-[11px] font-bold text-[#8d6e63] tracking-wide">
@@ -346,6 +346,7 @@ const LibraryBookReader = forwardRef<LibraryBookReaderHandle, LibraryBookReaderP
     if (width <= 0 || height <= 0) return null
 
     return (
+      <>
       <HTMLFlipBook
         ref={bookRef}
         width={width}
@@ -387,6 +388,14 @@ const LibraryBookReader = forwardRef<LibraryBookReaderHandle, LibraryBookReaderP
           </PageWrapper>
         ))}
       </HTMLFlipBook>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .thin-scrollbar::-webkit-scrollbar { width: 3px; }
+        .thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .thin-scrollbar::-webkit-scrollbar-thumb { background: #8d6e63; border-radius: 9999px; }
+        .thin-scrollbar::-webkit-scrollbar-thumb:hover { background: #d4b483; }
+        .thin-scrollbar { scrollbar-width: thin; scrollbar-color: #8d6e63 transparent; }
+      `}} />
+      </>
     )
   }
 )
